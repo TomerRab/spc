@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- Solid Project Creator Favicon -->
+  <!-- Background -->
+  <rect width="64" height="64" rx="12" fill="#FC6D26"/>
+  
+  <!-- Repository Structure -->
+  <g transform="translate(32, 32)">
+    <!-- Main Repository -->
+    <rect x="-12" y="-8" width="24" height="12" rx="2" fill="white" stroke="white" stroke-width="0.5"/>
+    
+    <!-- Files inside repo -->
+    <g fill="#FC6D26" opacity="0.6">
+      <rect x="-10" y="-6" width="3" height="4" rx="0.5"/>
+      <rect x="-6" y="-6" width="3" height="4" rx="0.5"/>
+      <rect x="-2" y="-6" width="3" height="4" rx="0.5"/>
+    </g>
+    
+    <!-- Git branches -->
+    <g stroke="white" stroke-width="1.5" fill="none">
+      <path d="M-8,-12 Q-4,-16 0,-16 Q4,-16 8,-12"/>
+      <path d="M-4,8 Q0,12 4,12 Q6,12 8,10"/>
+    </g>
+    
+    <!-- Tool icon -->
+    <g transform="translate(-16, 12)">
+      <path d="M0,0 L4,4 L8,0" stroke="#2E3A59" stroke-width="1.2" fill="none"/>
+      <circle cx="4" cy="2" r="0.8" fill="#2E3A59"/>
+    </g>
+    
+    <!-- Small automation gear -->
+    <g transform="translate(16, -16)">
+      <circle cx="0" cy="0" r="4" fill="#FCA326"/>
+      <circle cx="0" cy="0" r="1.5" fill="white"/>
+      <!-- Gear teeth -->
+      <g fill="#FCA326">
+        <rect x="-0.8" y="-5" width="1.6" height="2"/>
+        <rect x="-0.8" y="3" width="1.6" height="2"/>
+        <rect x="3" y="-0.8" width="2" height="1.6"/>
+        <rect x="-5" y="-0.8" width="2" height="1.6"/>
+      </g>
+    </g>
+  </g>
+</svg>

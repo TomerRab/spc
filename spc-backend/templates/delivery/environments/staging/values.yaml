@@ -1,0 +1,96 @@
+# Staging Environment Configuration
+# Override values for staging deployment
+
+image:
+  tag: "staging"
+  pullPolicy: Always
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 1
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: {{ repo_name }}-staging.{{ cluster_domain | default('example.com') }}
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: {{ repo_name }}-staging-tls
+      hosts:
+        - {{ repo_name }}-staging.{{ cluster_domain | default('example.com') }}
+
+service:
+  type: ClusterIP
+  port: 80
+
+env:
+  NODE_ENV: "staging"
+  LOG_LEVEL: "info"
+
+configMap:
+  enabled: true
+  data:
+    database_url: "postgresql://staging-db:5432/{{ repo_name }}_staging"
+    redis_url: "redis://staging-redis:6379/0"
+    api_base_url: "https://{{ repo_name }}-staging.{{ cluster_domain | default('example.com') }}"
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::{{ aws_account_id | default('123456789012') }}:role/{{ repo_name }}-staging-role"
+
+nodeSelector:
+  node-type: "staging"
+
+tolerations:
+  - key: "staging"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - {{ repo_name }}
+        topologyKey: kubernetes.io/hostname
+
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false

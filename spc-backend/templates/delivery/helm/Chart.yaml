@@ -1,0 +1,28 @@
+apiVersion: v2
+name: {{ repo_name }}
+description: A Helm chart for {{ repo_name }} microservice deployment
+
+# Chart type (application or library)
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 0.1.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+appVersion: "1.0.0"
+
+keywords:
+  - microservice
+  - {{ repo_name }}
+  - kubernetes
+
+maintainers:
+  - name: "DevOps Team"
+    email: "devops@company.com"
+
+sources:
+  - https://gitlab.com/your-group/{{ repo_name }}
+  - https://gitlab.com/your-group/{{ repo_name }}-delivery

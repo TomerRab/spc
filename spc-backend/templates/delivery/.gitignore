@@ -1,0 +1,54 @@
+# Helm generated files
+*.tgz
+charts/*/charts/
+
+# Environment specific files
+.env
+.env.local
+.env.*.local
+
+# Secret management tools
+secrets.*.yaml
+*.enc
+.sealed-secrets/
+.helm-secrets/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.bak
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor directories and files  
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Kubernetes temporary files
+*.yaml.tmp
+kustomization.yaml.backup
+
+# Terraform (if used)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Local development
+.local/
+tmp/

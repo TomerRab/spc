@@ -1,0 +1,17 @@
+{
+  "name": "Solid Project Creator",
+  "short_name": "Solid Creator",
+  "description": "Automated GitLab repository creation tool",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FC6D26",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

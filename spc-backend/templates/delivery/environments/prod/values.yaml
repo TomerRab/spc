@@ -1,0 +1,139 @@
+# Production Environment Configuration
+# Override values for production deployment
+
+image:
+  tag: "v1.0.0"  # Use specific version tags in production
+  pullPolicy: IfNotPresent
+
+replicaCount: 3
+
+resources:
+  limits:
+    cpu: 2
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: {{ repo_name }}.{{ cluster_domain | default('example.com') }}
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: {{ repo_name }}-prod-tls
+      hosts:
+        - {{ repo_name }}.{{ cluster_domain | default('example.com') }}
+
+service:
+  type: ClusterIP
+  port: 80
+
+env:
+  NODE_ENV: "production"
+  LOG_LEVEL: "warn"
+
+configMap:
+  enabled: true
+  data:
+    database_url: "postgresql://prod-db:5432/{{ repo_name }}_prod"
+    redis_url: "redis://prod-redis:6379/0"
+    api_base_url: "https://{{ repo_name }}.{{ cluster_domain | default('example.com') }}"
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::{{ aws_account_id | default('123456789012') }}:role/{{ repo_name }}-prod-role"
+
+nodeSelector:
+  node-type: "production"
+  instance-type: "high-performance"
+
+tolerations:
+  - key: "production"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - {{ repo_name }}
+      topologyKey: kubernetes.io/hostname
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      preference:
+        matchExpressions:
+        - key: node-type
+          operator: In
+          values:
+          - production
+
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+
+# Production-specific monitoring and observability
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: "/metrics"
+  prometheus.io/port: "8080"
+
+# Network policies for production security
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+      - protocol: TCP
+        port: 8080
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+      - protocol: TCP
+        port: 8080
+
+# Pod disruption budget for high availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

@@ -1,0 +1,115 @@
+# Staging environment values for {{ repo_name }}
+# This file contains staging-specific configurations
+
+# Override base values for staging
+replicaCount: 2
+
+image:
+  repository: registry.gitlab.com/your-group/{{ repo_name }}
+  pullPolicy: IfNotPresent
+  tag: "staging"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: {{ repo_name }}-staging.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: {{ repo_name }}-staging-tls
+      hosts:
+        - {{ repo_name }}-staging.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Environment variables for staging
+env:
+  - name: APP_ENV
+    value: "staging"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: {{ repo_name }}-staging-secrets
+        key: database-url
+
+# ConfigMap data for staging
+configMap:
+  enabled: true
+  data:
+    app.properties: |
+      debug=false
+      log.level=INFO
+      cors.enabled=false
+      monitoring.enabled=true
+
+# Staging database
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "staging-password"
+    database: "{{ repo_name }}_staging"
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "fast-ssd"
+
+# Staging cache
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "staging-redis-password"
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi

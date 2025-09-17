@@ -1,0 +1,159 @@
+# Production environment values for {{ repo_name }}
+# This file contains production-specific configurations
+
+# Override base values for production
+replicaCount: 3
+
+image:
+  repository: registry.gitlab.com/your-group/{{ repo_name }}
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: {{ repo_name }}.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: {{ repo_name }}-prod-tls
+      hosts:
+        - {{ repo_name }}.example.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: 
+  node-type: production
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - {{ repo_name }}
+        topologyKey: kubernetes.io/hostname
+
+# Environment variables for production
+env:
+  - name: APP_ENV
+    value: "production"
+  - name: LOG_LEVEL
+    value: "warn"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: {{ repo_name }}-prod-secrets
+        key: database-url
+  - name: REDIS_URL
+    valueFrom:
+      secretKeyRef:
+        name: {{ repo_name }}-prod-secrets
+        key: redis-url
+
+# ConfigMap data for production
+configMap:
+  enabled: true
+  data:
+    app.properties: |
+      debug=false
+      log.level=WARN
+      cors.enabled=false
+      monitoring.enabled=true
+      security.enhanced=true
+
+# Production database (external managed service)
+postgresql:
+  enabled: false  # Use managed database service in production
+
+# Production cache (external managed service) 
+redis:
+  enabled: false  # Use managed Redis service in production
+
+# Production monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    labels:
+      app: {{ repo_name }}
+    interval: 30s
+
+# Network policies for production security
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: nginx-ingress
+      ports:
+      - protocol: TCP
+        port: 8000
+  egress:
+    - to: []
+      ports:
+      - protocol: TCP
+        port: 443  # HTTPS
+      - protocol: TCP
+        port: 5432  # PostgreSQL
+      - protocol: TCP
+        port: 6379  # Redis
