@@ -5,7 +5,7 @@ from typing import Dict
 from fastapi import HTTPException
 from jinja2 import Environment, FileSystemLoader
 
-from app.services.stack_config_manager import StackConfigManager
+from .stack_config_manager import StackConfigManager
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.cache import groups_cache
-from app.services.gitlab_service import GitLabService
+from app.services.gitlab import GitLabService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/groups", tags=["groups"])

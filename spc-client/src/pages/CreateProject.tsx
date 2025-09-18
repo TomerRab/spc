@@ -9,13 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useGroupSearch } from '@/hooks/useGroupSearch';
 import { useProjectForm } from '@/hooks/useProjectForm';
 import { useProjectSubmission } from '@/hooks/useProjectSubmission';
-import { GroupSelector } from '@/components/GroupSelector';
-import { ProjectTypeSelector } from '@/components/ProjectTypeSelector';
-import { TechnologyStackSelector } from '@/components/TechnologyStackSelector';
-import { VisibilitySelector } from '@/components/VisibilitySelector';
-import { DeploymentConfig } from '@/components/DeploymentConfig';
-import { DeliveryConfig } from '@/components/DeliveryConfig';
-import { ProjectSuccessDialog } from '@/components/ProjectSuccessDialog';
+import { GroupSelector, ProjectTypeSelector, TechnologyStackSelector, VisibilitySelector } from '@/components/selectors';
+import { DeploymentConfig, DeliveryConfig } from '@/components/project-creation';
+import { ProjectSuccessDialog } from '@/components/forms';
 
 const CreateProject = () => {
   const navigate = useNavigate();

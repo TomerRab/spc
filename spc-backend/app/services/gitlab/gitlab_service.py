@@ -1,8 +1,8 @@
 from typing import Dict, List, Tuple
 
-from app.services.gitlab_groups_service import GitLabGroupsService
-from app.services.gitlab_repository_service import GitLabRepositoryService
-from app.services.gitlab_variables_service import GitLabVariablesService
+from .gitlab_groups_service import GitLabGroupsService
+from .gitlab_repository_service import GitLabRepositoryService
+from .gitlab_variables_service import GitLabVariablesService
 from app.core.config import settings
 
 

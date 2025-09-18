@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import debounce from 'lodash.debounce';
 import { GitLabGroup, GitLabCredentials } from '@/types/gitlab';
-import { gitlabApi } from '@/lib/api';
+import { groupsService } from '@/services';
+import { FORM_VALIDATION } from '@/constants';
 import { useToast } from '@/hooks/use-toast';
 
 export const useGroupSearch = (credentials: GitLabCredentials | null) => {
@@ -20,7 +21,7 @@ export const useGroupSearch = (credentials: GitLabCredentials | null) => {
       const trimmedQuery = query.trim();
       
       // Clear results if query is too short
-      if (trimmedQuery.length < 3) {
+      if (trimmedQuery.length < FORM_VALIDATION.MIN_SEARCH_LENGTH) {
         setGroups([]);
         setSearchError('');
         setLoadingGroups(false);

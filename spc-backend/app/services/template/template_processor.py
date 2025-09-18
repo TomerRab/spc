@@ -1,8 +1,8 @@
 import logging
 from typing import Dict, Optional
 
-from app.services.stack_config_manager import StackConfigManager
-from app.services.template_renderer import TemplateRenderer
+from .stack_config_manager import StackConfigManager
+from .template_renderer import TemplateRenderer
 
 logger = logging.getLogger(__name__)
 

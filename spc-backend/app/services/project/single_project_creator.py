@@ -1,7 +1,7 @@
 from typing import Dict, List
 from fastapi import HTTPException
 from app.schemas.repo_models import RepoRequest
-from app.services.variable_manager import VariableManager
+from .variable_manager import VariableManager
 import logging
 
 logger = logging.getLogger(__name__)

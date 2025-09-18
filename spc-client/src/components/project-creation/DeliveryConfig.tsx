@@ -2,7 +2,7 @@ import { Control, UseFormWatch } from 'react-hook-form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { GroupSelector } from './GroupSelector';
+import { GroupSelector } from '../selectors/GroupSelector';
 import { ServerSelection } from './ServerSelection';
 import { ProjectForm } from '@/schemas/projectSchema';
 import { GitLabGroup } from '@/types/gitlab';

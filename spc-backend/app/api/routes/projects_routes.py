@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.schemas.repo_models import RepoRequest
-from app.services.project_creator import ProjectCreator
+from app.services.project import ProjectCreator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["projects"])

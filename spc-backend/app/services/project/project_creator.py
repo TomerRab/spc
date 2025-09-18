@@ -2,10 +2,10 @@ from typing import Dict
 from fastapi import HTTPException
 from app.core.config import settings
 from app.schemas.repo_models import RepoRequest
-from app.services.gitlab_service import GitLabService
-from app.services.template_processor import TemplateProcessor
-from app.services.single_project_creator import SingleProjectCreator
-from app.services.microservice_creator import MicroserviceCreator
+from app.services.gitlab import GitLabService
+from app.services.template import TemplateProcessor
+from .single_project_creator import SingleProjectCreator
+from .microservice_creator import MicroserviceCreator
 import logging
 
 logger = logging.getLogger(__name__)
