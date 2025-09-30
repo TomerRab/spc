@@ -6,8 +6,8 @@ export const FORM_VALIDATION = {
 // API endpoints
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/auth/login-url',
-    CALLBACK: '/auth/callback',
+    LOGIN: '/login-url',
+    CALLBACK: '/callback',
   },
   GROUPS: {
     LIST: '/groups',

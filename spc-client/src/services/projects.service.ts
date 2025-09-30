@@ -1,12 +1,10 @@
 import { gitlabApi } from '@/lib/api';
 import { ProjectForm } from '@/schemas/projectSchema';
-import { API_ENDPOINTS } from '@/constants';
+import { GitLabCredentials, CreateProjectRequest } from '@/types/gitlab';
 
 export class ProjectsService {
-  static async createProject(token: string, projectData: ProjectForm): Promise<any> {
-    return gitlabApi.post(API_ENDPOINTS.PROJECTS.CREATE, projectData, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+  static async createProject(credentials: GitLabCredentials, projectData: ProjectForm): Promise<any> {
+    return gitlabApi.createProject(projectData as CreateProjectRequest, credentials);
   }
 }
 

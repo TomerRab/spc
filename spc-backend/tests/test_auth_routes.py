@@ -20,7 +20,7 @@ class TestAuthRoutes:
         mock_settings.gitlab_client_id = "test-client-id"
         mock_settings.gitlab_redirect_uri = "http://localhost:3000/callback"
         
-        response = client.get("/auth/login", follow_redirects=False)
+        response = client.get("/login", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]
@@ -33,7 +33,7 @@ class TestAuthRoutes:
         """Test OAuth login URL when client ID is missing."""
         mock_settings.gitlab_client_id = None
         
-        response = client.get("/auth/login")
+        response = client.get("/login")
         
         assert response.status_code == 500
         data = response.json()
@@ -45,7 +45,7 @@ class TestAuthRoutes:
         mock_settings.gitlab_client_id = "test-client-id"
         mock_settings.gitlab_redirect_uri = "http://localhost:3000/callback"
         
-        response = client.get("/auth/login-url")
+        response = client.get("/login-url")
         
         assert response.status_code == 200
         data = response.json()
@@ -57,7 +57,7 @@ class TestAuthRoutes:
         """Test OAuth URL retrieval when client ID is missing."""
         mock_settings.gitlab_client_id = None
         
-        response = client.get("/auth/login-url")
+        response = client.get("/login-url")
         
         assert response.status_code == 500
         data = response.json()
@@ -88,7 +88,7 @@ class TestAuthRoutes:
         mock_client.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
         
-        response = client.get("/auth/callback?code=test-auth-code", follow_redirects=False)
+        response = client.get("/callback?code=test-auth-code", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]
@@ -100,7 +100,7 @@ class TestAuthRoutes:
         """Test OAuth callback with error parameter."""
         mock_settings.frontend_url = "http://localhost:3000"
         
-        response = client.get("/auth/callback?error=access_denied", follow_redirects=False)
+        response = client.get("/callback?error=access_denied", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]
@@ -112,7 +112,7 @@ class TestAuthRoutes:
         """Test OAuth callback without authorization code."""
         mock_settings.frontend_url = "http://localhost:3000"
         
-        response = client.get("/auth/callback", follow_redirects=False)
+        response = client.get("/callback", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]
@@ -125,7 +125,7 @@ class TestAuthRoutes:
         mock_settings.gitlab_client_secret = None
         mock_settings.frontend_url = "http://localhost:3000"
         
-        response = client.get("/auth/callback?code=test-code", follow_redirects=False)
+        response = client.get("/callback?code=test-code", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]
@@ -152,7 +152,7 @@ class TestAuthRoutes:
         mock_client.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
         
-        response = client.get("/auth/callback?code=invalid-code", follow_redirects=False)
+        response = client.get("/callback?code=invalid-code", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]
@@ -180,7 +180,7 @@ class TestAuthRoutes:
         mock_client.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client
         
-        response = client.get("/auth/callback?code=test-code", follow_redirects=False)
+        response = client.get("/callback?code=test-code", follow_redirects=False)
         
         assert response.status_code == 302
         location = response.headers["location"]

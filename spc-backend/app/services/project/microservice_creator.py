@@ -1,296 +1,176 @@
-from typing import Dict
-from fastapi import HTTPException
-from app.schemas.repo_models import RepoRequest
-from .variable_manager import VariableManager
+"""Microservice project creation orchestrator."""
 import logging
+from typing import Dict, List
+
+from fastapi import HTTPException
+
+from app.schemas.repo_models import RepoRequest
+from app.utils.exceptions import ProjectCreationError
+from .variable_manager import VariableManager
+from .microservice_repository_manager import MicroserviceRepositoryManager
+from .microservice_rollback_handler import MicroserviceRollbackHandler
+from .microservice_response_builder import MicroserviceResponseBuilder
 
 logger = logging.getLogger(__name__)
 
 
 class MicroserviceCreator:
-    """Handles creation of microservice projects with optional delivery repositories."""
+    """Orchestrates creation of microservice projects with optional delivery repositories."""
     
-    def __init__(self, gitlab_service, template_processor):
+    def __init__(self, gitlab_service, template_processor) -> None:
         self.gitlab_service = gitlab_service
         self.template_processor = template_processor
+        self._initialize_managers(gitlab_service, template_processor)
+
+    def _initialize_managers(self, gitlab_service, template_processor) -> None:
+        """Initialize all manager dependencies."""
         self.variable_manager = VariableManager()
+        self.repository_manager = MicroserviceRepositoryManager(gitlab_service, template_processor)
+        self.rollback_handler = MicroserviceRollbackHandler(gitlab_service)
+        self.response_builder = MicroserviceResponseBuilder()
 
     async def create_with_delivery(self, token: str, repo_request: RepoRequest) -> Dict:
         """Create microservice with separate delivery repository."""
         created_repos = []
-        microservice_id = None
-        delivery_id = None
-        
+        microservice_data = None
+        delivery_data = None
+
         try:
-            # Step 1: Generate template files first (fail fast if templates are missing)
-            logger.info("Generating microservice template files...")
-            microservice_files = await self.template_processor.get_project_files(
-                project_type="microservice",
-                repo_name=repo_request.sanitized_name,
-                stack=repo_request.stack,
-            )
-            
-            logger.info("Generating delivery template files...")
-            delivery_files = await self.template_processor.get_project_files(
-                project_type="delivery",
-                repo_name=repo_request.sanitized_name,
-                stack=None,
-            )
+            microservice_data = await self._create_microservice_part(token, repo_request, created_repos)
+            delivery_data = await self._create_delivery_part(token, repo_request, created_repos)
 
-            # Step 2: Create microservice repository
-            logger.info("Creating microservice repository...")
-            microservice_url, microservice_id = await self.gitlab_service.create_repository(
-                token, repo_request.dict()
-            )
-            
-            logger.info("Adding files to microservice repository...")
-            await self.gitlab_service.add_files(token, microservice_id, microservice_files)
-            
-            created_repos.append({
-                "type": "microservice",
-                "name": repo_request.name,
-                "url": microservice_url,
-                "id": microservice_id
-            })
+            # Variables are created after repos, so handle failure gracefully
+            try:
+                variables_created = await self._setup_delivery_variables(token, delivery_data[1], repo_request)
+            except Exception as var_error:
+                logger.warning(f"Failed to create CI/CD variables: {str(var_error)}")
+                # Don't rollback repos if just variables failed - repos are usable
+                # Return success with empty variables list
+                variables_created = []
+                logger.info("Continuing without CI/CD variables - they can be added manually")
 
-            # Step 3: Create delivery repository
-            logger.info("Creating delivery repository...")
-            delivery_repo_data = repo_request.dict()
-            delivery_repo_data["name"] = f"{repo_request.name}-delivery"
-            delivery_repo_data["project_name"] = f"{repo_request.name}-delivery"
-            
-            delivery_url, delivery_id = await self.gitlab_service.create_repository(
-                token, delivery_repo_data
-            )
-            
-            logger.info("Adding files to delivery repository...")
-            await self.gitlab_service.add_files(token, delivery_id, delivery_files)
-
-            # Set cluster variables for delivery repo
-            variables_created = []
-            if repo_request.openshiftServers:
-                # Set old-style cluster variables for backward compatibility
-                cluster_variables = self.variable_manager.create_deployment_variables(
-                    repo_request.openshiftServers
-                )
-                await self.gitlab_service.set_project_variables(
-                    token, delivery_id, cluster_variables
-                )
-                
-                # Set new environment-specific variables
-                env_variables = await self.variable_manager.set_environment_variables(
-                    self.gitlab_service, token, delivery_id, repo_request.openshiftServers
-                )
-                
-                variables_created = list(cluster_variables.keys()) + env_variables
-
-            created_repos.append({
-                "type": "delivery",
-                "name": f"{repo_request.name}-delivery",
-                "url": delivery_url,
-                "id": delivery_id
-            })
-
-            return self._build_microservice_response(
-                repo_request, microservice_url, microservice_id, delivery_url, 
-                delivery_id, microservice_files, delivery_files, variables_created
-            )
-
+            return self._build_success_response(microservice_data, delivery_data, variables_created, repo_request)
         except Exception as e:
-            # Rollback: Delete any repositories that were created before the failure
-            await self._rollback_repositories(token, microservice_id, delivery_id)
-            raise self._handle_creation_error(e, repo_request)
+            # Only rollback if repository creation failed, not variable creation
+            await self._handle_creation_failure(token, created_repos, e, repo_request.name)
+
+    async def _create_microservice_part(self, token: str, repo_request: RepoRequest, created_repos: list) -> tuple:
+        """Create the microservice repository part."""
+        microservice_url, microservice_id, microservice_files = (
+            await self.repository_manager.create_microservice_repository(token, repo_request)
+        )
+        self._add_to_created_repos(created_repos, "microservice", repo_request.name, microservice_url, microservice_id)
+        return microservice_url, microservice_id, microservice_files
+
+    async def _create_delivery_part(self, token: str, repo_request: RepoRequest, created_repos: list) -> tuple:
+        """Create the delivery repository part."""
+        delivery_url, delivery_id, delivery_files = (
+            await self.repository_manager.create_delivery_repository(token, repo_request)
+        )
+        delivery_name = f"{repo_request.name}-delivery"
+        self._add_to_created_repos(created_repos, "delivery", delivery_name, delivery_url, delivery_id)
+        return delivery_url, delivery_id, delivery_files
+
+    def _add_to_created_repos(self, created_repos: list, repo_type: str, name: str, url: str, repo_id: int) -> None:
+        """Add repository to created repos tracking list."""
+        created_repos.append({
+            "type": repo_type,
+            "name": name,
+            "url": url,
+            "id": repo_id
+        })
+
+    def _build_success_response(self, microservice_data: tuple, delivery_data: tuple, variables_created: list, repo_request: RepoRequest) -> Dict:
+        """Build successful creation response."""
+        microservice_url, microservice_id, microservice_files = microservice_data
+        delivery_url, delivery_id, delivery_files = delivery_data
+        return self.response_builder.build_success_response(
+            repo_request, microservice_url, microservice_id, delivery_url, 
+            delivery_id, microservice_files, delivery_files, variables_created
+        )
+
+    async def _handle_creation_failure(self, token: str, created_repos: list, error: Exception, project_name: str) -> None:
+        """Handle failure during creation process."""
+        rollback_errors = await self.rollback_handler.rollback_repositories(token, created_repos, error)
+        error_msg = self.rollback_handler.build_rollback_error_message(error, rollback_errors or [], project_name)
+        raise HTTPException(status_code=500, detail=error_msg)
 
     async def create_standalone(self, token: str, repo_request: RepoRequest) -> Dict:
-        """Create standalone microservice - 1 repository with microservice code AND delivery/Helm charts included."""
+        """Create standalone microservice with deployment configurations."""
+        created_repos = []
         try:
-            # Generate microservice files
-            logger.info("Generating microservice template files...")
-            microservice_files = await self.template_processor.get_project_files(
-                project_type="microservice",
-                repo_name=repo_request.sanitized_name,
-                stack=repo_request.stack,
-            )
-            
-            # Generate delivery files (Helm charts, etc.)
-            logger.info("Generating delivery template files...")
-            delivery_files = await self.template_processor.get_project_files(
-                project_type="delivery",
-                repo_name=repo_request.sanitized_name,
-                stack=None,
-            )
-            
-            # Merge both sets of files into one repository
-            all_files = {**microservice_files}
-            
-            # Add delivery files with proper paths
-            for file_path, content in delivery_files.items():
-                # Skip duplicate files (like README.md, .gitignore)
-                if file_path in ["README.md", ".gitignore"]:
-                    continue
-                # Add delivery files under deployment/ directory
-                all_files[f"deployment/{file_path}"] = content
-            
-            # Create single repository
-            logger.info("Creating standalone microservice repository...")
-            repo_url, project_id = await self.gitlab_service.create_repository(
-                token, repo_request.dict()
-            )
-            
-            logger.info("Adding all files to repository...")
-            await self.gitlab_service.add_files(token, project_id, all_files)
-            
-            # Set cluster variables if needed
-            variables_created = []
-            if repo_request.openshiftServers:
-                # Set old-style cluster variables for backward compatibility
-                cluster_variables = self.variable_manager.create_deployment_variables(
-                    repo_request.openshiftServers
-                )
-                await self.gitlab_service.set_project_variables(
-                    token, project_id, cluster_variables
-                )
-                
-                # Set new environment-specific variables
-                env_variables = await self.variable_manager.set_environment_variables(
-                    self.gitlab_service, token, project_id, repo_request.openshiftServers
-                )
-                
-                variables_created = list(cluster_variables.keys()) + env_variables
-            
-            return self._build_standalone_response(repo_request, repo_url, project_id, all_files, variables_created)
+            microservice_url, microservice_id, files = await self._create_microservice_repo(token, repo_request)
+            self._add_to_created_repos(created_repos, "standalone-microservice", repo_request.name, microservice_url, microservice_id)
 
+            # Variables are created after repo, handle failure gracefully
+            try:
+                variables_created = await self._setup_deployment_variables(token, microservice_id, repo_request)
+            except Exception as var_error:
+                logger.warning(f"Failed to create CI/CD variables: {str(var_error)}")
+                # Don't rollback repo if just variables failed
+                variables_created = []
+                logger.info("Continuing without CI/CD variables - they can be added manually")
+
+            return self._build_standalone_response(repo_request, microservice_url, microservice_id, files, variables_created)
         except Exception as e:
-            raise self._handle_creation_error(e, repo_request)
+            await self._handle_creation_failure(token, created_repos, e, repo_request.name)
 
-    def _build_microservice_response(self, repo_request, microservice_url, microservice_id, 
-                                   delivery_url, delivery_id, microservice_files, delivery_files, variables_created):
-        """Build response for microservice with delivery repository."""
-        return {
-            "status": "success",
-            "project_type": "standalone-microservice",
-            "repositories": [
-                {
-                    "type": "microservice",
-                    "name": repo_request.name,
-                    "url": microservice_url,
-                    "id": microservice_id
-                },
-                {
-                    "type": "delivery",
-                    "name": f"{repo_request.name}-delivery",
-                    "url": delivery_url,
-                    "id": delivery_id
-                }
-            ],
-            "primary_repos": [
-                {
-                    "title": "🚀 Microservice Repository",
-                    "name": repo_request.name,
-                    "url": microservice_url,
-                    "id": microservice_id,
-                    "description": "Main application repository containing your microservice code",
-                    "type": "microservice",
-                    "action_text": "Start Coding",
-                    "clone_command": f"git clone {microservice_url}"
-                },
-                {
-                    "title": "⚙️ Delivery Repository", 
-                    "name": f"{repo_request.name}-delivery",
-                    "url": delivery_url,
-                    "id": delivery_id,
-                    "description": "GitOps delivery repository with Helm charts for deployments",
-                    "type": "delivery",
-                    "action_text": "Configure Deployment",
-                    "clone_command": f"git clone {delivery_url}"
-                }
-            ],
-            "files_created": {
-                "microservice": list(microservice_files.keys()),
-                "delivery": list(delivery_files.keys())
-            },
-            "variables_created": variables_created,
-            "summary": {
-                "message": f"✅ Successfully created {repo_request.project_type} project with delivery repository",
-                "repos_created": 2,
-                "total_files": len(microservice_files) + len(delivery_files),
-                "environments": ["dev", "staging", "prod"]
-            },
-            "next_steps": [
-                "Clone the microservice repository to start developing",
-                "Configure environment variables in the delivery repository", 
-                "Update Helm values for your specific deployment needs",
-                "Push your first commit to trigger the CI/CD pipeline"
-            ]
-        }
+    async def _create_microservice_repo(self, token: str, repo_request: RepoRequest) -> tuple:
+        """Create microservice repository and return details."""
+        return await self.repository_manager.create_microservice_repository(token, repo_request)
 
-    def _build_standalone_response(self, repo_request, repo_url, project_id, all_files, variables_created):
-        """Build response for standalone microservice."""
-        return {
-            "status": "success",
-            "project_type": repo_request.project_type,
-            "repositories": [{
-                "type": repo_request.project_type,
-                "name": repo_request.name,
-                "url": repo_url,
-                "id": project_id,
-                "description": "Standalone microservice with integrated delivery/deployment configuration"
-            }],
-            "primary_repos": [
-                {
-                    "title": "🚀 Standalone Microservice",
-                    "name": repo_request.name,
-                    "url": repo_url,
-                    "id": project_id,
-                    "description": "All-in-one repository with microservice code and deployment configuration",
-                    "type": repo_request.project_type,
-                    "action_text": "Start Coding & Deploy",
-                    "clone_command": f"git clone {repo_url}"
-                }
-            ],
-            "repo_url": repo_url,
-            "project_id": project_id,
-            "files_created": list(all_files.keys()),
-            "variables_created": variables_created,
-            "summary": {
-                "message": f"✅ Successfully created standalone microservice with integrated deployment",
-                "repos_created": 1,
-                "total_files": len(all_files),
-                "includes": ["microservice code", "Helm charts", "CI/CD pipeline", "multi-environment configs"]
-            },
-            "next_steps": [
-                "Clone the repository to start developing",
-                "Review the deployment/ directory for Helm charts and configurations",
-                "Customize environment-specific values in deployment/environments/",
-                "Push your first commit to trigger the CI/CD pipeline"
-            ]
-        }
+    def _build_standalone_response(
+        self, repo_request: RepoRequest, microservice_url: str, 
+        microservice_id: int, files: Dict[str, str], variables_created: List[str]
+    ) -> Dict:
+        """Build standalone microservice response."""
+        return self.response_builder.build_standalone_response(
+            repo_request, microservice_url, microservice_id, files, variables_created
+        )
 
-    async def _rollback_repositories(self, token: str, microservice_id: int = None, delivery_id: int = None):
-        """Rollback created repositories on failure."""
-        if microservice_id:
-            try:
-                logger.info(f"Rolling back: Deleting microservice repository {microservice_id}")
-                await self.gitlab_service.delete_repository(token, microservice_id)
-            except Exception as rollback_error:
-                logger.error(f"Failed to rollback microservice repository {microservice_id}: {str(rollback_error)}")
-        
-        if delivery_id:
-            try:
-                logger.info(f"Rolling back: Deleting delivery repository {delivery_id}")
-                await self.gitlab_service.delete_repository(token, delivery_id)
-            except Exception as rollback_error:
-                logger.error(f"Failed to rollback delivery repository {delivery_id}: {str(rollback_error)}")
+    def _handle_standalone_failure(self, error: Exception, project_name: str) -> None:
+        """Handle standalone microservice creation failure."""
+        logger.error(f"Failed to create standalone microservice: {str(error)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create standalone microservice '{project_name}': {str(error)}"
+        )
 
-    def _handle_creation_error(self, error: Exception, repo_request: RepoRequest):
-        """Handle and format creation errors."""
-        logger.error(f"Microservice creation failed: {str(error)}")
-        
-        if "Template not found" in str(error):
-            return HTTPException(400, f"The selected technology stack '{repo_request.stack}' is not supported for {repo_request.project_type} projects. Please choose a different stack or contact support.")
-        elif "Permission denied" in str(error) or "403" in str(error):
-            return HTTPException(403, f"You don't have permission to create repositories in the selected group. Please choose a different group or contact your GitLab administrator.")
-        elif "already been taken" in str(error) or "already exists" in str(error):
-            return HTTPException(400, f"A project with this name already exists in the selected group. Please choose a different project name.")
-        else:
-            return HTTPException(500, f"Failed to create {repo_request.project_type} project. Please try again or contact support if the issue persists. Details: {str(error)}")
+    async def _setup_delivery_variables(self, token: str, delivery_id: int, repo_request: RepoRequest) -> list[str]:
+        """Set up CI/CD variables for delivery repository."""
+        if not repo_request.openshiftServers:
+            return []
+        return await self._create_and_set_variables(token, delivery_id, repo_request)
+
+    async def _create_and_set_variables(self, token: str, delivery_id: int, repo_request: RepoRequest) -> list[str]:
+        """Create and set both cluster and environment variables."""
+        cluster_variables = self._create_cluster_variables(repo_request)
+        await self._set_cluster_variables(token, delivery_id, cluster_variables)
+        env_variables = await self._set_environment_variables(token, delivery_id, repo_request)
+        return list(cluster_variables.keys()) + env_variables
+
+    def _create_cluster_variables(self, repo_request: RepoRequest) -> Dict[str, str]:
+        """Create cluster variables."""
+        return self.variable_manager.create_deployment_variables(repo_request.openshiftServers)
+
+    async def _set_cluster_variables(self, token: str, delivery_id: int, cluster_variables: Dict[str, str]) -> None:
+        """Set cluster variables in GitLab."""
+        await self.gitlab_service.set_project_variables(token, delivery_id, cluster_variables)
+
+    async def _set_environment_variables(self, token: str, delivery_id: int, repo_request: RepoRequest) -> list[str]:
+        """Set environment-specific variables."""
+        return await self.variable_manager.set_environment_variables(
+            self.gitlab_service, token, delivery_id, repo_request.openshiftServers
+        )
+
+    async def _setup_deployment_variables(self, token: str, repo_id: int, repo_request: RepoRequest) -> list[str]:
+        """Set up CI/CD variables for standalone microservice."""
+        if not repo_request.openshiftServers:
+            return []
+        return await self._create_and_set_cluster_variables(token, repo_id, repo_request)
+
+    async def _create_and_set_cluster_variables(self, token: str, repo_id: int, repo_request: RepoRequest) -> list[str]:
+        """Create and set cluster variables for standalone deployment."""
+        cluster_variables = self._create_cluster_variables(repo_request)
+        await self._set_cluster_variables(token, repo_id, cluster_variables)
+        return list(cluster_variables.keys())

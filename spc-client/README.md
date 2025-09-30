@@ -79,7 +79,7 @@ pip install -r requirements.txt
 # Set environment variables
 export GITLAB_CLIENT_ID=your_gitlab_client_id
 export GITLAB_CLIENT_SECRET=your_gitlab_client_secret
-export GITLAB_REDIRECT_URI=http://localhost:8080/auth/callback
+export GITLAB_REDIRECT_URI=http://localhost:8080/callback
 
 # Start FastAPI server
 uvicorn main:app --host 0.0.0.0 --port 5000 --reload
@@ -95,7 +95,7 @@ uvicorn main:app --host 0.0.0.0 --port 5000 --reload
 
 ### GitLab OAuth Setup
 1. Create a new application in GitLab (User Settings > Applications)
-2. Set redirect URI to `http://localhost:8080/auth/callback`
+2. Set redirect URI to `http://localhost:8080/callback`
 3. Select scopes: `api`, `read_user`, `read_repository`, `write_repository`
 4. Use the provided client ID and secret in your environment variables
 

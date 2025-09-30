@@ -102,3 +102,8 @@ ENV/
 env/
 venv.bak/
 env.bak/
+
+# Environment configuration files
+.env
+.env.*
+!.env.development

@@ -9,9 +9,6 @@ class StackConfigManager:
         "spring": "settings.xml",  # Spring uses Maven
         "node": ".npmrc",
         "react": ".npmrc",  # React uses npm
-        "typescript": ".npmrc",  # TypeScript uses npm
-        "javascript": ".npmrc",  # JavaScript uses npm
-        "vue": ".npmrc",  # Vue uses npm
         "python": "pip.ini",
         "dotnet": "nuget.config",
         "csharp": "nuget.config",  # C# uses NuGet
@@ -20,11 +17,8 @@ class StackConfigManager:
     STACK_FALLBACKS = {
         # Spring -> Maven fallbacks
         "spring": "maven",
-        # React/TypeScript/JavaScript/Vue -> Node fallbacks
+        # React -> Node fallbacks
         "react": "node",
-        "typescript": "node", 
-        "javascript": "node",
-        "vue": "node",
         # C# -> .NET fallbacks
         "csharp": "dotnet",
     }
@@ -34,10 +28,22 @@ class StackConfigManager:
         return self.STACK_CONFIGS.get(stack)
 
     def get_fallback_template(self, template_path: str) -> Optional[str]:
-        """Get fallback template path for common stack mappings."""
+        """Get fallback template path for common stack mappings.
+
+        Examples:
+            library/spring.gitlab-ci.yml -> library/maven.gitlab-ci.yml
+            microservice/react.gitlab-ci.yml -> microservice/node.gitlab-ci.yml
+        """
+        # Extract stack from path (handles both /stack. and /stack/ patterns)
         for stack, fallback_stack in self.STACK_FALLBACKS.items():
+            # Handle pattern: /stack.extension (e.g., /spring.gitlab-ci.yml)
             if f"/{stack}." in template_path:
-                return template_path.replace(f"/{stack}.", f"/{fallback_stack}.")
+                fallback_path = template_path.replace(f"/{stack}.", f"/{fallback_stack}.")
+                return fallback_path
+            # Handle pattern: /stack/ (e.g., /spring/)
+            if f"/{stack}/" in template_path:
+                fallback_path = template_path.replace(f"/{stack}/", f"/{fallback_stack}/")
+                return fallback_path
         return None
 
     def requires_docker(self, project_type: str, stack: str) -> bool:

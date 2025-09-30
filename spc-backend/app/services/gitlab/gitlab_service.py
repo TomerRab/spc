@@ -8,9 +8,9 @@ from app.core.config import settings
 
 class GitLabService:
     """Main orchestrator service for GitLab API operations."""
-    
+
     def __init__(self):
-        self.groups_service = GitLabGroupsService(settings.gitlab_url)
+        self.groups_service = GitLabGroupsService(settings.gitlab_url, timeout=settings.http_timeout_gitlab)
         self.repository_service = GitLabRepositoryService()
         self.variables_service = GitLabVariablesService()
 
@@ -28,9 +28,9 @@ class GitLabService:
         """Create a new GitLab repository and return its URL and ID."""
         return await self.repository_service.create_repository(token, repo_data)
 
-    async def add_files(self, token: str, project_id: int, files: Dict[str, str]) -> None:
+    async def add_files(self, token: str, project_id: int, files: Dict[str, str], branch: str = None) -> None:
         """Add multiple files to a GitLab repository via commit."""
-        return await self.repository_service.add_files(token, project_id, files)
+        return await self.repository_service.add_files(token, project_id, files, branch)
 
     async def delete_repository(self, token: str, project_id: int) -> None:
         """Delete a GitLab repository/project."""

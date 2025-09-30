@@ -21,17 +21,61 @@ const Login = () => {
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
-    const access_token = searchParams.get('access_token');
-    const token_type = searchParams.get('token_type');
-    const expires_in = searchParams.get('expires_in');
+    // SECURITY: Parse from URL hash (fragment) instead of query parameters
+    // This prevents token leakage through Referer headers and browser history
+    const parseHashParams = () => {
+      const hash = window.location.hash.substring(1); // Remove '#'
+      const params = new URLSearchParams(hash);
+      return {
+        success: params.get('success'),
+        error: params.get('error'),
+        access_token: params.get('access_token'),
+        token_type: params.get('token_type'),
+        expires_in: params.get('expires_in')
+      };
+    };
 
-    if (success && access_token && token_type) {
+    // Try hash first (new secure method), fallback to query params for backwards compatibility
+    const hashParams = parseHashParams();
+    const hasHashParams = hashParams.access_token || hashParams.error;
+
+    const success = hasHashParams ? hashParams.success : searchParams.get('success');
+    const error = hasHashParams ? hashParams.error : searchParams.get('error');
+    const access_token = hasHashParams ? hashParams.access_token : searchParams.get('access_token');
+    const token_type = hasHashParams ? hashParams.token_type : searchParams.get('token_type');
+    const expires_in = hasHashParams ? hashParams.expires_in : searchParams.get('expires_in');
+
+    // Basic input sanitization for OAuth parameters
+    const sanitizeParam = (param: string | null): string | null => {
+      if (!param) return null;
+      // Remove potentially dangerous characters but preserve valid OAuth tokens/parameters
+      return param.replace(/[<>\"'\\&]/g, '').trim();
+    };
+
+    const sanitizedError = sanitizeParam(error);
+    const sanitizedAccessToken = sanitizeParam(access_token);
+    const sanitizedTokenType = sanitizeParam(token_type);
+
+    // Clear the hash after parsing to avoid token exposure
+    if (hasHashParams && sanitizedAccessToken) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    if (success && sanitizedAccessToken && sanitizedTokenType) {
+      // Additional validation for token format
+      if (sanitizedAccessToken.length < 10 || sanitizedAccessToken.length > 500) {
+        toast({
+          title: 'Authentication failed',
+          description: 'Invalid token format received',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Handle successful OAuth callback
       const credentials = {
-        access_token,
-        token_type,
+        access_token: sanitizedAccessToken,
+        token_type: sanitizedTokenType,
         expires_in: expires_in ? parseInt(expires_in) : undefined,
       };
       setCredentials(credentials);
@@ -40,18 +84,29 @@ const Login = () => {
         description: 'Welcome to Solid Project Creator',
       });
       navigate('/create-project');
-    } else if (error) {
+    } else if (sanitizedError) {
       // Handle OAuth errors
+      const allowedErrors = ['missing_code', 'token_exchange_failed', 'gitlab_unreachable'];
       const errorMessages = {
         missing_code: 'Authorization code was missing',
         token_exchange_failed: 'Failed to exchange token with GitLab',
         gitlab_unreachable: 'Unable to contact GitLab servers',
       };
-      toast({
-        title: 'Authentication failed',
-        description: errorMessages[error as keyof typeof errorMessages] || 'An unknown error occurred',
-        variant: 'destructive',
-      });
+      
+      // Only show error if it's in our allowed list
+      if (allowedErrors.includes(sanitizedError)) {
+        toast({
+          title: 'Authentication failed',
+          description: errorMessages[sanitizedError as keyof typeof errorMessages],
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Authentication failed',
+          description: 'An unknown error occurred',
+          variant: 'destructive',
+        });
+      }
     }
   }, [searchParams, setCredentials, toast, navigate]);
 
@@ -61,7 +116,7 @@ const Login = () => {
     try {
       const { login_url } = await gitlabApi.getLoginUrl();
       window.location.href = login_url;
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'Login Error',
         description: 'Failed to initiate GitLab login. Please try again.',

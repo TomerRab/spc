@@ -81,7 +81,10 @@ export const DeliveryConfig = ({
                 groupOpen={groupOpen}
                 selectedGroupId={field.value || 0}
                 onSearchChange={onSearchChange}
-                onGroupSelect={field.onChange}
+                onGroupSelect={(groupId) => {
+                  field.onChange(groupId);
+                  onOpenChange(false);
+                }}
                 onOpenChange={onOpenChange}
                 label="Delivery Group"
                 description="Select the group where the delivery repository will be created"

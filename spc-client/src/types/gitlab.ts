@@ -49,12 +49,3 @@ export interface ProjectConfig {
 export interface CreateProjectRequest extends ProjectConfig {
   // credentials will be sent as Authorization header instead
 }
-
-// Keep for future use when we want to add existing repo configuration
-// export interface ConfigureExistingProjectRequest {
-//   credentials: GitLabCredentials;
-//   projectId: number;
-//   projectType: string;
-//   stack?: string;
-//   openshiftServers?: Record<string, ServerConfig>;
-// }  

@@ -25,7 +25,6 @@ async def create_repository(
 ) -> Dict:
     """Create a new GitLab repository with templated files based on project configuration."""
     logger.info(f"Creating repository: {repo_request.name} of type {repo_request.projectType}")
-    
     try:
         project_creator = ProjectCreator()
         result = await project_creator.create_project(token, repo_request)
@@ -35,4 +34,5 @@ async def create_repository(
         raise
     except Exception as e:
         logger.error(f"Unexpected error in create_repository: {str(e)}")
-        raise HTTPException(500, f"An unexpected error occurred while creating your project. Please try again or contact support. Details: {str(e)}")
+        # Don't expose internal error details to clients
+        raise HTTPException(500, "An unexpected error occurred while creating your project. Please try again or contact support if the problem persists.")

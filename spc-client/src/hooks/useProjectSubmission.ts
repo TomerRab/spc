@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { GitLabCredentials } from '@/types/gitlab';
 import { gitlabApi } from '@/lib/api';
 import { ProjectForm } from '@/schemas/projectSchema';
+import { formatErrorMessage, AppError } from '@/utils/errorHandler';
 
 export const useProjectSubmission = (
   form: UseFormReturn<ProjectForm>,
@@ -21,7 +22,7 @@ export const useProjectSubmission = (
         title: 'Copied to clipboard!',
         description: 'Command copied successfully',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'Failed to copy',
         description: 'Please copy manually',
@@ -79,19 +80,12 @@ export const useProjectSubmission = (
       setShowSuccess(true);
       form.reset();
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Project creation error:', error);
       
-      let errorMessage = 'Please check your configuration and try again';
-      
-      // Extract error message from API response
-      if (error?.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      } else if (error?.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
+      // Use our consistent error handling
+      const appError = error as AppError;
+      const errorMessage = formatErrorMessage(appError);
       
       toast({
         title: 'Failed to create project',

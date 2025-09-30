@@ -153,7 +153,7 @@ export const DEPLOYMENT_SERVERS: ServerConfig[] = [
     id: 'd',
     label: 'Server D',
     description: 'Test/Staging environment',
-    defaultNamespacePrefix: 'staging',
+    defaultNamespacePrefix: 'test',
   },
 ];
 

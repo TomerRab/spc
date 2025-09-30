@@ -51,7 +51,6 @@ This directory contains comprehensive tests for the GitLab Project Creator backe
 ### API Routes
 - **Main Routes** (`test_routes.py`)
   - Health check endpoint
-  - Legacy endpoint redirects
 
 - **Authentication Routes** (`test_auth_routes.py`)
   - OAuth flow handling

@@ -17,6 +17,7 @@ const CreateProject = () => {
   const navigate = useNavigate();
   const { credentials, logout } = useAuth();
   const [groupOpen, setGroupOpen] = useState(false);
+  const [deliveryGroupOpen, setDeliveryGroupOpen] = useState(false);
   const [showDeliveryOptions, setShowDeliveryOptions] = useState(false);
 
   // Group search functionality
@@ -26,6 +27,15 @@ const CreateProject = () => {
     searchTerm,
     searchError,
     handleSearchChange,
+  } = useGroupSearch(credentials);
+
+  // Delivery group search functionality (separate state)
+  const {
+    groups: deliveryGroups,
+    loadingGroups: loadingDeliveryGroups,
+    searchTerm: deliverySearchTerm,
+    searchError: deliverySearchError,
+    handleSearchChange: handleDeliverySearchChange,
   } = useGroupSearch(credentials);
 
   // Form management
@@ -213,13 +223,13 @@ const CreateProject = () => {
                   <DeliveryConfig
                     control={form.control}
                     watch={form.watch}
-                    groups={groups}
-                    loadingGroups={loadingGroups}
-                    searchTerm={searchTerm}
-                    searchError={searchError}
-                    groupOpen={groupOpen}
-                    onSearchChange={handleSearchChange}
-                    onOpenChange={setGroupOpen}
+                    groups={deliveryGroups}
+                    loadingGroups={loadingDeliveryGroups}
+                    searchTerm={deliverySearchTerm}
+                    searchError={deliverySearchError}
+                    groupOpen={deliveryGroupOpen}
+                    onSearchChange={handleDeliverySearchChange}
+                    onOpenChange={setDeliveryGroupOpen}
                     createDelivery={createDelivery}
                     deliveryServers={deliveryServers}
                     isDeliveryServerSelected={isDeliveryServerSelected}
