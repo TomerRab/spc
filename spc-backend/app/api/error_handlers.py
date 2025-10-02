@@ -40,20 +40,20 @@ async def spc_base_exception_handler(request: Request, exc: SPCBaseException) ->
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         user_message = "Unable to connect to GitLab. Please try again later."
     elif isinstance(exc, S3Error):
-        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        user_message = "Template service is temporarily unavailable. Please try again later."
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        user_message = "A system error occurred. Please contact SOLID Team for support."
     elif isinstance(exc, (TemplateNotFoundError, TemplateError)):
         status_code = status.HTTP_400_BAD_REQUEST
         user_message = "The selected configuration is not currently supported. Please try a different option."
     elif isinstance(exc, ConfigurationError):
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        user_message = "System configuration error. Please contact support."
+        user_message = "A system error occurred. Please contact SOLID Team for support."
     elif isinstance(exc, ProjectCreationError):
         status_code = status.HTTP_400_BAD_REQUEST
         user_message = exc.message  # Project errors are usually user-actionable
     else:
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        user_message = "An unexpected error occurred. Please try again or contact support."
+        user_message = "A system error occurred. Please contact SOLID Team for support."
 
     return JSONResponse(
         status_code=status_code,
@@ -110,7 +110,7 @@ async def template_error_handler(request: Request, exc: TemplateError) -> JSONRe
         user_message = "The selected project configuration is not available. Please try a different technology stack."
     else:
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-        user_message = "Unable to generate project files. Please try again or contact support."
+        user_message = "A system error occurred. Please contact SOLID Team for support."
 
     return JSONResponse(
         status_code=status_code,
@@ -173,7 +173,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     # Keep the original message for 4xx errors (usually user-actionable)
     # Simplify 5xx errors to avoid exposing internals
     if exc.status_code >= 500:
-        user_message = "A system error occurred. Please try again or contact support."
+        user_message = "A system error occurred. Please contact SOLID Team for support."
     else:
         user_message = str(exc.detail)
 
@@ -192,7 +192,7 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     logger.exception(f"Unexpected error in {request.url.path}: {str(exc)}")
 
     # Generic user-friendly message - no technical details
-    user_message = "An unexpected error occurred. Please try again or contact support if the problem persists."
+    user_message = "A system error occurred. Please contact SOLID Team for support."
 
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -102,12 +102,14 @@ const getStatusMessage = (status: number): string => {
     case 429:
       return 'Too many requests. Please wait a moment and try again.';
     case 500:
-      return 'Server error. Please try again later.';
     case 502:
     case 503:
     case 504:
-      return 'Service temporarily unavailable. Please try again later.';
+      return 'A system problem has occurred. Please contact SOLID Team for support.';
     default:
+      if (status >= 500) {
+        return 'A system problem has occurred. Please contact SOLID Team for support.';
+      }
       return `An error occurred (${status}). Please try again.`;
   }
 };
@@ -122,30 +124,24 @@ export const formatErrorMessage = (error: AppError): string => {
     case 'validation':
       return error.field ? `${error.field}: ${error.message}` : error.message;
     case 'api':
+      // For server errors (5xx), always show generic message
+      if (error.status_code >= 500) {
+        return 'A system problem has occurred. Please contact SOLID Team for support.';
+      }
+      // For client errors (4xx), show the specific message only if it's user-friendly
+      if (error.status_code >= 400 && error.status_code < 500) {
+        // If the message looks technical (contains certain keywords), show generic message
+        const technicalKeywords = ['template', 'database', 'sql', 'exception', 'error:', 'traceback', 's3', 'storage'];
+        const lowerMessage = error.message.toLowerCase();
+        if (technicalKeywords.some(keyword => lowerMessage.includes(keyword))) {
+          return 'A system problem has occurred. Please contact SOLID Team for support.';
+        }
+        return error.message;
+      }
       return error.message;
     default:
-      return 'An unexpected error occurred.';
+      return 'A system problem has occurred. Please contact SOLID Team for support.';
   }
-};
-
-/**
- * Get error severity level for UI styling
- */
-export const getErrorSeverity = (error: AppError): 'error' | 'warning' | 'info' => {
-  if (error.type === 'network') {
-    return 'error';
-  }
-  
-  if (error.type === 'api') {
-    if (error.status_code >= 500) return 'error';
-    if (error.status_code >= 400) return 'warning';
-  }
-  
-  if (error.type === 'validation') {
-    return 'warning';
-  }
-  
-  return 'error';
 };
 
 /**
@@ -153,16 +149,6 @@ export const getErrorSeverity = (error: AppError): 'error' | 'warning' | 'info' 
  */
 export const isAuthError = (error: AppError): boolean => {
   return error.type === 'api' && (error.status_code === 401 || error.status_code === 403);
-};
-
-/**
- * Check if error is retryable
- */
-export const isRetryableError = (error: AppError): boolean => {
-  if (error.type === 'network') return true;
-  if (error.type === 'api' && error.status_code >= 500) return true;
-  if (error.type === 'api' && error.status_code === 429) return true;
-  return false;
 };
 
 /**
@@ -175,21 +161,12 @@ export const logError = (error: AppError, context?: string): void => {
     status_code: error.type === 'api' ? error.status_code : undefined,
     context
   };
-  
+
   console.error('Application Error:', sanitizedError);
-  
+
   // In production, you might want to send this to a logging service
   // Don't log sensitive information like tokens or personal data
 };
-
-/**
- * Create a validation error
- */
-export const createValidationError = (message: string, field?: string): ValidationError => ({
-  type: 'validation',
-  message,
-  field
-});
 
 /**
  * Handle async operations with consistent error handling

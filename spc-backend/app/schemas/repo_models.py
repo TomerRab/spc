@@ -132,9 +132,9 @@ class RepoRequest(BaseModel):
 
     def _validate_stack_validity(self):
         """Validate that the selected stack is valid."""
-        valid_stacks = ["maven", "spring", "node", "react", "typescript", "javascript", "vue", "python", "dotnet", "csharp"]
+        valid_stacks = ["maven", "spring", "node", "react", "python", "dotnet", "csharp"]
         if self.stack.strip().lower() not in valid_stacks:
-            raise ValueError(f"Invalid technology stack '{self.stack}'. Please select from: Maven, Spring, Node.js, React, TypeScript, JavaScript, Vue, Python, .NET, C#.")
+            raise ValueError(f"Invalid technology stack '{self.stack}'. Please select from: Maven, Spring, Node.js, React, Python, .NET, C#.")
 
     def _validate_deployment_configuration(self):
         """Validate deployment configuration for projects that require it."""

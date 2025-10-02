@@ -3,7 +3,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DEPLOYMENT_SERVERS } from '@/config/project';
-import { Control } from 'react-hook-form';
+import { Control, Path } from 'react-hook-form';
 import { ProjectForm } from '@/schemas/projectSchema';
 
 interface ServerSelectionProps {
@@ -47,7 +47,7 @@ export const ServerSelection = ({
           {isServerSelected(server.id) && (
             <FormField
               control={control}
-              name={`${fieldPrefix}.${server.id}.namespace` as any}
+              name={`${fieldPrefix}.${server.id}.namespace` as Path<ProjectForm>}
               render={({ field }) => (
                 <FormItem className="ml-6">
                   <FormLabel>Namespace for {server.label}</FormLabel>

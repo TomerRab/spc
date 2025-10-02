@@ -37,20 +37,20 @@ class S3TemplateLoader(BaseLoader):
         except self.s3_client.exceptions.NoSuchBucket:
             # Misconfigured bucket = 500 INTERNAL ERROR (server config problem)
             logger.error(f"S3 bucket not found: {self.s3_bucket}")
-            raise S3Error(f"S3 bucket configuration error", bucket=self.s3_bucket, key=template)
+            raise S3Error(f"Template storage configuration error", bucket=self.s3_bucket, key=template)
         except self.s3_client.exceptions.ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
             # Access denied = 403 FORBIDDEN (not 500!)
             if error_code == 'AccessDenied':
                 logger.error(f"S3 access denied for template: {template}")
-                raise S3Error(f"Access denied to S3 template", bucket=self.s3_bucket, key=template)
+                raise S3Error(f"Template storage access denied", bucket=self.s3_bucket, key=template)
             # Other client errors = likely misconfiguration
             logger.error(f"S3 client error loading template {template}: {error_code}")
-            raise S3Error(f"S3 configuration error", bucket=self.s3_bucket, key=template)
+            raise S3Error(f"Template storage configuration error", bucket=self.s3_bucket, key=template)
         except Exception as e:
             # Network errors, connection errors = 503 SERVICE UNAVAILABLE
             logger.error(f"S3 service error loading template {template}: {str(e)}")
-            raise S3Error(f"S3 service temporarily unavailable", bucket=self.s3_bucket, key=template)
+            raise S3Error(f"Template storage service error", bucket=self.s3_bucket, key=template)
 
 
 class TemplateRenderer:

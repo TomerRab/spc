@@ -1,4 +1,4 @@
-import { GitLabCredentials, GitLabGroup, GitLabProject, CreateProjectRequest } from '@/types/gitlab';
+import { GitLabCredentials, GitLabGroup, GitLabProject, CreateProjectRequest, CreateProjectResponse } from '@/types/gitlab';
 import { config } from '@/config/env';
 import { parseAPIError } from '@/utils/errorHandler';
 
@@ -110,7 +110,7 @@ export const gitlabApi = {
   },
 
   // Create project
-  createProject: async (projectData: CreateProjectRequest, credentials: GitLabCredentials): Promise<any> => {
+  createProject: async (projectData: CreateProjectRequest, credentials: GitLabCredentials): Promise<CreateProjectResponse> => {
     try {
       const response = await fetchWithTimeout(
         `${config.API_BASE_URL}/projects/generate-repo`,

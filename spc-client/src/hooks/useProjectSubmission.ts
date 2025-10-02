@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useToast } from '@/hooks/use-toast';
-import { GitLabCredentials } from '@/types/gitlab';
+import { GitLabCredentials, CreateProjectResponse } from '@/types/gitlab';
 import { gitlabApi } from '@/lib/api';
 import { ProjectForm } from '@/schemas/projectSchema';
 import { formatErrorMessage, AppError } from '@/utils/errorHandler';
@@ -12,7 +12,7 @@ export const useProjectSubmission = (
 ) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [createdProject, setCreatedProject] = useState<any>(null);
+  const [createdProject, setCreatedProject] = useState<CreateProjectResponse | null>(null);
   const { toast } = useToast();
 
   const copyToClipboard = async (text: string) => {

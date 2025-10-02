@@ -1,11 +1,12 @@
 import { Check, ExternalLink, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CreateProjectResponse, ProjectRepository, LegacyProjectRepository } from '@/types/gitlab';
 
 interface ProjectSuccessDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  createdProject: any;
+  createdProject: CreateProjectResponse | null;
   onCopyToClipboard: (text: string) => void;
 }
 
@@ -54,7 +55,7 @@ export const ProjectSuccessDialog = ({
             <h3 className="text-lg font-semibold">Repository Links</h3>
             
             {createdProject?.primary_repos ? (
-              createdProject.primary_repos.map((repo: any, index: number) => (
+              createdProject.primary_repos.map((repo: ProjectRepository, index: number) => (
                 <div key={index} className="border rounded-lg p-6 bg-white shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
                     <h4 className="text-xl font-semibold">{repo.title}</h4>
@@ -99,7 +100,7 @@ export const ProjectSuccessDialog = ({
               ))
             ) : (
               // Fallback for old API response format
-              createdProject?.repositories?.map((repo: any, index: number) => (
+              createdProject?.repositories?.map((repo: LegacyProjectRepository, index: number) => (
                 <div key={index} className="border rounded-lg p-6 bg-white shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
                     <h4 className="text-lg font-semibold">{repo.name}</h4>

@@ -75,7 +75,26 @@ const CreateProject = () => {
   useEffect(() => {
     const shouldShow = projectType === 'microservice';
     setShowDeliveryOptions(shouldShow);
-  }, [projectType]);
+
+    // Reset delivery config when switching away from microservice
+    if (!shouldShow) {
+      form.setValue('deliveryConfig', {
+        createDelivery: false,
+        deliveryGroupId: 0,
+        deliveryName: '',
+        deliveryServers: {},
+      });
+    }
+  }, [projectType, form]);
+
+  // Reset delivery config fields when createDelivery is unchecked
+  useEffect(() => {
+    if (!createDelivery && projectType === 'microservice') {
+      form.setValue('deliveryConfig.deliveryGroupId', 0);
+      form.setValue('deliveryConfig.deliveryName', '');
+      form.setValue('deliveryConfig.deliveryServers', {});
+    }
+  }, [createDelivery, projectType, form]);
 
   // Server selection helpers
   const isServerSelected = (serverKey: string) => !!openshiftServers[serverKey];

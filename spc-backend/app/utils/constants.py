@@ -28,15 +28,12 @@ PROJECT_CONSTANTS = {
         'delivery'
     ],
     'VALID_STACKS': [
-        'maven', 
-        'spring', 
-        'node', 
-        'react', 
-        'typescript', 
-        'javascript', 
-        'vue', 
-        'python', 
-        'dotnet', 
+        'maven',
+        'spring',
+        'node',
+        'react',
+        'python',
+        'dotnet',
         'csharp'
     ],
     'VALID_VISIBILITIES': ['private', 'internal', 'public'],

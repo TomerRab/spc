@@ -49,3 +49,30 @@ export interface ProjectConfig {
 export interface CreateProjectRequest extends ProjectConfig {
   // credentials will be sent as Authorization header instead
 }
+
+export interface ProjectRepository {
+  title: string;
+  description: string;
+  url: string;
+  action_text: string;
+  clone_command: string;
+}
+
+export interface LegacyProjectRepository {
+  name: string;
+  url: string;
+}
+
+export interface ProjectSummary {
+  message: string;
+  repos_created: number;
+  total_files: number;
+  environments?: string[];
+}
+
+export interface CreateProjectResponse {
+  summary?: ProjectSummary;
+  primary_repos?: ProjectRepository[];
+  repositories?: LegacyProjectRepository[];
+  next_steps?: string[];
+}

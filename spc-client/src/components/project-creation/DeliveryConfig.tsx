@@ -100,14 +100,11 @@ export const DeliveryConfig = ({
               <FormItem>
                 <FormLabel>Delivery Repository Name</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder={`${watch('name') || 'project'}-delivery`} 
-                    {...field} 
+                  <Input
+                    placeholder={`${watch('name') || 'my-awesome-project'}-delivery`}
+                    {...field}
                   />
                 </FormControl>
-                <FormDescription>
-                  Name for the delivery repository (defaults to project-name-delivery)
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
