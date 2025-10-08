@@ -174,14 +174,43 @@ CORS_ORIGINS=http://localhost:8080,http://localhost:5173
 ```
 templates/
 ├── common/
-│   ├── configs/          # Stack-specific configs (settings.xml, .npmrc)
-│   ├── build/            # Dockerfiles and .dockerignore
-│   ├── gitignore/        # Tech stack .gitignore files
-│   └── README.md.j2      # Common README template
-├── library/              # Library project templates
-├── microservice/         # Microservice templates with CI/CD
-├── monorepo/             # Monorepo templates with Helm charts
-└── delivery/             # Delivery templates with Helm charts
+│   ├── README.md.j2      # Common README template
+│   └── .helmignore       # Helm ignore file
+├── docker/               # Docker files for all stacks
+│   ├── python.Dockerfile
+│   ├── maven.Dockerfile
+│   ├── node.Dockerfile
+│   ├── dotnet.Dockerfile
+│   └── .dockerignore
+├── project-types/        # Project type specific templates
+│   ├── delivery/         # Delivery repository templates
+│   │   ├── gitlab-ci.yml.j2
+│   │   └── helm/
+│   ├── library/          # Library project CI/CD templates
+│   │   ├── python.gitlab-ci.yml.j2
+│   │   ├── maven.gitlab-ci.yml.j2
+│   │   ├── node.gitlab-ci.yml.j2
+│   │   └── dotnet.gitlab-ci.yml.j2
+│   ├── microservice/     # Microservice CI/CD templates
+│   │   └── (same structure as library)
+│   └── monorepo/         # Monorepo templates with Helm charts
+│       ├── helm/
+│       └── (CI files for each stack)
+└── stacks/               # Stack-specific configuration files
+    ├── dotnet/           # .NET configuration
+    │   ├── nuget.config
+    │   └── .gitignore
+    ├── maven/            # Maven/Java configuration
+    │   ├── pom.xml
+    │   ├── settings.xml
+    │   ├── .gitignore
+    │   └── src/
+    ├── node/             # Node.js configuration
+    │   ├── .npmrc
+    │   └── .gitignore
+    └── python/           # Python configuration
+        ├── pip.ini
+        └── .gitignore
 ```
 
 ## Usage

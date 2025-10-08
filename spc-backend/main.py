@@ -26,7 +26,7 @@ except ConfigurationError as e:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="GitLab Repository Sculptor")
+    app = FastAPI(title="SOLID Project Creator")
     app.include_router(router)
     _add_cors_middleware(app)
     register_exception_handlers(app)

@@ -399,43 +399,58 @@ Creates a new GitLab repository with templates.
 ### S3 Template Structure
 
 ```
-templates/
+s3://solid-project-creator/templates/
 ├── common/
-│   ├── configs/                # Stack-specific configuration files
-│   │   ├── settings.xml.j2     # Maven settings
-│   │   ├── .npmrc.j2           # npm configuration
-│   │   └── ...
-│   ├── build/                  # Build-related files
-│   │   ├── Dockerfile.spring.j2
-│   │   ├── Dockerfile.nodejs.j2
-│   │   ├── .dockerignore.j2
-│   │   └── ...
-│   ├── gitignore/              # Stack-specific .gitignore files
-│   │   ├── .gitignore.python.j2
-│   │   ├── .gitignore.nodejs.j2
-│   │   └── ...
-│   └── README.md.j2            # Common README template
-├── library/                     # Library project templates
-│   ├── .gitlab-ci.yml.j2
-│   └── src/
-├── microservice/                # Microservice templates
-│   ├── .gitlab-ci.yml.j2
-│   ├── src/
-│   └── config/
-├── monorepo/                    # Monorepo templates with Helm
-│   ├── .gitlab-ci.yml.j2
-│   ├── services/
-│   └── helm/
-└── delivery/                    # Delivery repository templates
-    ├── .gitlab-ci.yml.j2
-    ├── helm/
-    │   ├── Chart.yaml.j2
-    │   ├── values.yaml.j2
-    │   └── templates/
-    │       ├── deployment.yaml.j2
-    │       ├── service.yaml.j2
-    │       └── ingress.yaml.j2
-    └── config/
+│   ├── README.md.j2            # Common README template
+│   └── .helmignore             # Helm ignore file
+│
+├── docker/                      # Docker files for all stacks
+│   ├── python.Dockerfile       # Python Dockerfile
+│   ├── maven.Dockerfile        # Maven/Java Dockerfile
+│   ├── node.Dockerfile         # Node.js Dockerfile
+│   ├── dotnet.Dockerfile       # .NET Dockerfile
+│   └── .dockerignore           # Common dockerignore file
+│
+├── project-types/               # Project type specific templates
+│   ├── delivery/               # Delivery repository templates
+│   │   ├── gitlab-ci.yml.j2
+│   │   └── helm/
+│   │       ├── values.yaml.j2
+│   │       └── Chart.yaml.j2
+│   ├── library/                # Library project CI/CD templates
+│   │   ├── python.gitlab-ci.yml.j2
+│   │   ├── dotnet.gitlab-ci.yml.j2
+│   │   ├── maven.gitlab-ci.yml.j2
+│   │   └── node.gitlab-ci.yml.j2
+│   ├── microservice/           # Microservice CI/CD templates
+│   │   ├── python.gitlab-ci.yml.j2
+│   │   ├── dotnet.gitlab-ci.yml.j2
+│   │   ├── maven.gitlab-ci.yml.j2
+│   │   └── node.gitlab-ci.yml.j2
+│   └── monorepo/               # Monorepo templates with Helm charts
+│       ├── python.gitlab-ci.yml.j2
+│       ├── dotnet.gitlab-ci.yml.j2
+│       ├── maven.gitlab-ci.yml.j2
+│       ├── node.gitlab-ci.yml.j2
+│       └── helm/
+│           ├── values.yaml.j2
+│           └── Chart.yaml.j2
+│
+└── stacks/                      # Stack-specific configuration files
+    ├── dotnet/                 # .NET stack configuration
+    │   ├── nuget.config        # NuGet package manager config
+    │   └── .gitignore          # .NET gitignore
+    ├── maven/                  # Maven/Java stack configuration
+    │   ├── pom.xml             # Maven project file
+    │   ├── .gitignore          # Java/Maven gitignore
+    │   ├── settings.xml        # Maven settings
+    │   └── src/                # Empty source directory
+    ├── node/                   # Node.js stack configuration
+    │   ├── .gitignore          # Node.js gitignore
+    │   └── .npmrc              # npm configuration
+    └── python/                 # Python stack configuration
+        ├── .gitignore          # Python gitignore
+        └── pip.ini             # pip configuration
 ```
 
 ### Jinja2 Custom Delimiters

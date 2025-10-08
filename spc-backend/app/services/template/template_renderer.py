@@ -1,12 +1,12 @@
 import logging
 import boto3
 from typing import Dict, Optional
-from io import BytesIO
 
 from jinja2 import Environment, BaseLoader, TemplateNotFound, TemplateSyntaxError, select_autoescape
 
 from .stack_config_manager import StackConfigManager
-from app.utils.exceptions import TemplateError, TemplateNotFoundError, TemplateRenderError, S3Error
+from .template_error_handler import TemplateErrorHandler
+from app.utils.exceptions import TemplateError, TemplateRenderError, S3Error
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,8 @@ class TemplateRenderer:
     def __init__(self, s3_bucket: Optional[str] = None, s3_region: Optional[str] = None) -> None:
         self.s3_bucket = s3_bucket or settings.s3_bucket
         self.s3_region = s3_region or settings.s3_region
+        self.error_handler = TemplateErrorHandler(self.s3_bucket)
+        self.stack_manager = StackConfigManager()
 
         # Use S3 loader instead of FileSystemLoader
         self.jinja_env = Environment(
@@ -87,47 +89,26 @@ class TemplateRenderer:
             return template.render(**variables)
         except TemplateNotFound:
             # Try fallback template before failing
-            fallback_path = self._get_fallback_template(template_path)
-            if fallback_path:
-                try:
-                    logger.info(f"Template not found: {template_path}, trying fallback: {fallback_path}")
-                    template = self.jinja_env.get_template(fallback_path)
-                    return template.render(**variables)
-                except TemplateNotFound:
-                    logger.warning(f"Fallback template also not found: {fallback_path}")
-                    pass  # Fall through to original error
-            self._handle_template_not_found(template_path)
+            fallback_result = await self._try_fallback(template_path, variables)
+            if fallback_result:
+                return fallback_result
+            # Raise appropriate error
+            error_type = self.error_handler.get_error_type(template_path)
+            self.error_handler.raise_template_error(template_path, error_type, variables)
         except TemplateSyntaxError as e:
-            self._handle_template_syntax_error(template_path, e)
+            logger.error(f"Template syntax error in {template_path}: {str(e)}")
+            raise TemplateRenderError(
+                f"Template syntax error in '{template_path}': {str(e)}",
+                template_name=template_path,
+                template_path=f"s3://{self.s3_bucket}/{template_path}"
+            )
         except Exception as e:
-            self._handle_template_processing_error(template_path, e)
-
-    def _handle_template_not_found(self, template_path: str) -> None:
-        """Handle template not found error."""
-        logger.error(f"Template not found in S3: {template_path}")
-        raise TemplateNotFoundError(
-            f"Template '{template_path}' not found in S3 bucket",
-            template_name=template_path,
-            template_path=f"s3://{self.s3_bucket}/{template_path}"
-        )
-
-    def _handle_template_syntax_error(self, template_path: str, e: TemplateSyntaxError) -> None:
-        """Handle template syntax error."""
-        logger.error(f"Template syntax error in {template_path}: {str(e)}")
-        raise TemplateRenderError(
-            f"Template syntax error in '{template_path}': {str(e)}",
-            template_name=template_path,
-            template_path=f"s3://{self.s3_bucket}/{template_path}"
-        )
-
-    def _handle_template_processing_error(self, template_path: str, e: Exception) -> None:
-        """Handle general template processing error."""
-        logger.error(f"Template processing error for {template_path}: {str(e)}")
-        raise TemplateError(
-            f"Failed to process template '{template_path}': {str(e)}",
-            template_name=template_path,
-            template_path=f"s3://{self.s3_bucket}/{template_path}"
-        )
+            logger.error(f"Template processing error for {template_path}: {str(e)}")
+            raise TemplateError(
+                f"Failed to process template '{template_path}': {str(e)}",
+                template_name=template_path,
+                template_path=f"s3://{self.s3_bucket}/{template_path}"
+            )
 
     async def get_static_template(self, template_path: str) -> str:
         """Get a static template without variable substitution."""
@@ -136,122 +117,44 @@ class TemplateRenderer:
             return template.render()
         except TemplateNotFound:
             # Try fallback template before failing
-            fallback_path = self._get_fallback_template(template_path)
-            if fallback_path:
-                try:
-                    logger.info(f"Static template not found: {template_path}, trying fallback: {fallback_path}")
-                    template = self.jinja_env.get_template(fallback_path)
-                    return template.render()
-                except TemplateNotFound:
-                    logger.warning(f"Fallback static template also not found: {fallback_path}")
-                    pass  # Fall through to original error
-            return self._handle_static_template_error(template_path, TemplateNotFound(template_path))
+            fallback_result = await self._try_fallback(template_path)
+            if fallback_result:
+                return fallback_result
+            # Raise appropriate error
+            error_type = self.error_handler.get_error_type(template_path)
+            self.error_handler.raise_template_error(template_path, error_type)
         except Exception as e:
-            logger.error(f"Static template error: {template_path} (Error: {str(e)})")
-            return self._handle_static_template_error(template_path, e)
+            logger.error(f"Static template error: {template_path} ({str(e)})")
+            raise TemplateError(
+                f"Failed to process static template '{template_path}': {str(e)}",
+                template_name=template_path,
+                template_path=f"s3://{self.s3_bucket}/{template_path}"
+            )
 
-    def _handle_template_error(self, template_path: str, variables: Dict, error: Exception) -> str:
-        """Handle template processing errors with fallbacks and user-friendly messages."""
-        fallback_result = self._try_fallback_template(template_path, variables)
-        if fallback_result:
-            return fallback_result
-        self._raise_template_error_by_type(template_path, variables)
+    async def _try_fallback(
+        self, template_path: str, variables: Optional[Dict] = None
+    ) -> Optional[str]:
+        """Try fallback template, works for both static and variable templates.
 
-    def _try_fallback_template(self, template_path: str, variables: Dict) -> str:
-        """Try fallback template and return result if successful."""
+        Args:
+            template_path: Path to template that failed
+            variables: Optional template variables for rendering
+
+        Returns:
+            Rendered template content if fallback succeeds, None otherwise
+        """
         fallback_path = self._get_fallback_template(template_path)
         if not fallback_path:
             return None
+
         try:
-            logger.info(f"Trying fallback template: {fallback_path}")
+            logger.info(f"Template not found: {template_path}, trying fallback: {fallback_path}")
             template = self.jinja_env.get_template(fallback_path)
-            return template.render(**variables)
-        except Exception as fallback_error:
-            logger.error(f"Fallback template also failed: {fallback_path} (Error: {str(fallback_error)})")
+            return template.render(**variables) if variables else template.render()
+        except Exception as e:
+            logger.warning(f"Fallback also failed: {fallback_path} ({str(e)})")
             return None
 
-    def _raise_template_error_by_type(self, template_path: str, variables: Dict) -> None:
-        """Raise user-friendly error based on template type."""
-        # ALL template not found errors are 400 BAD REQUEST - it's a user input issue (wrong stack choice)
-        # NOT a server error!
-        if "/helm/templates/" in template_path:
-            raise TemplateNotFoundError(
-                f"Deployment templates not available for this configuration",
-                template_name=template_path,
-                template_path=f"s3://{self.s3_bucket}/{template_path}"
-            )
-        elif ".gitlab-ci.yml" in template_path:
-            self._raise_ci_template_error(template_path, variables)
-        elif any(ext in template_path for ext in ['.Dockerfile', '.gitignore', '.npmrc', 'settings.xml']):
-            self._raise_config_template_error(template_path, variables)
-        else:
-            raise TemplateNotFoundError(
-                f"Template not available",
-                template_name=template_path,
-                template_path=f"s3://{self.s3_bucket}/{template_path}"
-            )
-
-    def _raise_ci_template_error(self, template_path: str, variables: Dict) -> None:
-        """Raise CI template specific error."""
-        stack_info = f" for {variables.get('stack', 'the selected technology stack')}" if variables.get('stack') else ""
-        raise TemplateNotFoundError(
-            f"CI/CD pipeline template not found{stack_info}",
-            template_name=template_path,
-            template_path=f"s3://{self.s3_bucket}/{template_path}"
-        )
-
-    def _raise_config_template_error(self, template_path: str, variables: Dict) -> None:
-        """Raise configuration template specific error."""
-        stack_info = f" for {variables.get('stack', 'the selected technology stack')}" if variables.get('stack') else ""
-        raise TemplateNotFoundError(
-            f"Configuration template not found{stack_info}",
-            template_name=template_path,
-            template_path=f"s3://{self.s3_bucket}/{template_path}"
-        )
-
-    def _handle_static_template_error(self, template_path: str, error: Exception) -> str:
-        """Handle static template errors with fallbacks and user-friendly messages."""
-        fallback_result = self._try_static_fallback_template(template_path)
-        if fallback_result:
-            return fallback_result
-        self._raise_static_template_error_by_type(template_path)
-
-    def _try_static_fallback_template(self, template_path: str) -> str:
-        """Try static fallback template and return result if successful."""
-        fallback_path = self._get_fallback_template(template_path)
-        if not fallback_path:
-            return None
-        try:
-            logger.info(f"Trying fallback static template: {fallback_path}")
-            template = self.jinja_env.get_template(fallback_path)
-            return template.render()
-        except Exception as fallback_error:
-            logger.error(f"Fallback static template also failed: {fallback_path} (Error: {str(fallback_error)})")
-            return None
-
-    def _raise_static_template_error_by_type(self, template_path: str) -> None:
-        """Raise user-friendly error for static templates based on type."""
-        # ALL template not found errors are 400 BAD REQUEST - not server errors!
-        if "/helm/templates/" in template_path:
-            raise TemplateNotFoundError(
-                f"Deployment templates not available",
-                template_name=template_path,
-                template_path=f"s3://{self.s3_bucket}/{template_path}"
-            )
-        elif any(ext in template_path for ext in ['.Dockerfile', '.gitignore', '.npmrc', 'settings.xml', '.helmignore']):
-            raise TemplateNotFoundError(
-                f"Configuration files not available",
-                template_name=template_path,
-                template_path=f"s3://{self.s3_bucket}/{template_path}"
-            )
-        else:
-            raise TemplateNotFoundError(
-                f"Template not available",
-                template_name=template_path,
-                template_path=f"s3://{self.s3_bucket}/{template_path}"
-            )
-    
-    def _get_fallback_template(self, template_path: str) -> str:
+    def _get_fallback_template(self, template_path: str) -> Optional[str]:
         """Get fallback template path for common stack mappings."""
-        stack_manager = StackConfigManager()
-        return stack_manager.get_fallback_template(template_path)
+        return self.stack_manager.get_fallback_template(template_path)

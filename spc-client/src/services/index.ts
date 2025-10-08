@@ -1,3 +1,3 @@
 export { authService } from './auth.service';
 export { GroupsService } from './groups.service';
-export { projectsService } from './projects.service';
+export { ProjectsService } from './projects.service';

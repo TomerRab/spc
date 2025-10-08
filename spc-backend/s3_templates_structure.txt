@@ -1,50 +1,59 @@
-s3://your-bucket/templates/
-  ├── common/
-  │   └── build/
-  │       ├── .dockerignore
-  │       └── Dockerfiles/
-  │           ├── maven.Dockerfile
-  │           ├── node.Dockerfile
-  │           ├── python.Dockerfile
-  │           └── dotnet.Dockerfile
-  │   ├── gitignore/
-  │   │   ├── maven.gitignore
-  │   │   ├── node.gitignore
-  │   │   ├── python.gitignore
-  │   │   ├── dotnet.gitignore
-  │   │   └── .gitignore
-  │   ├── configs/
-  │   │   ├── settings.xml
-  │   │   ├── .npmrc
-  │   │   ├── pip.ini
-  │   │   └── nuget.config
-  │   └── README.md.j2
+s3://solid-project-creator/templates/
+├── common/
+│   ├── README.md.j2
+│   └── .helmignore
+│
+├── docker/
+│   ├── python.Dockerfile
+│   ├── maven.Dockerfile
+│   ├── node.Dockerfile
+│   ├── dotnet.Dockerfile
+│   └── .dockerignore
+│
+├── project-types/
+│   ├── delivery/
+│   │   ├── gitlab-ci.yml.j2
+│   │   └── helm/
+│   │       ├── values.yaml.j2
+│   │       └── Chart.yaml.j2
+│   ├── library/
+│   │   ├── python.gitlab-ci.yml.j2
+│   │   ├── dotnet.gitlab-ci.yml.j2
+│   │   ├── maven.gitlab-ci.yml.j2
+│   │   └── node.gitlab-ci.yml.j2
+│   ├── microservice/
+│   │   ├── python.gitlab-ci.yml.j2
+│   │   ├── dotnet.gitlab-ci.yml.j2
+│   │   ├── maven.gitlab-ci.yml.j2
+│   │   └── node.gitlab-ci.yml.j2
+│   └── monorepo/
+│       ├── python.gitlab-ci.yml.j2
+│       ├── dotnet.gitlab-ci.yml.j2
+│       ├── maven.gitlab-ci.yml.j2
+│       ├── node.gitlab-ci.yml.j2
+│       └── helm/
+│           ├── values.yaml.j2
+│           └── Chart.yaml.j2
+│
+└── stacks/
+    ├── dotnet/
+    │   ├── nuget.config
+    │   └── .gitignore
+    ├── maven/
+    │   ├── pom.xml
+    │   ├── .gitignore
+    │   ├── settings.xml
+    │   └── src/ (empty directory)
+    ├── node/
+    │   ├── .gitignore
+    │   └── .npmrc
+    └── python/
+        ├── .gitignore
+        └── pip.ini
 
-  ├── library/
-  │   ├── maven.gitlab-ci.yml
-  │   ├── node.gitlab-ci.yml
-  │   ├── python.gitlab-ci.yml
-  │   └── dotnet.gitlab-ci.yml
-  ├── microservice/
-  │   ├── maven.gitlab-ci.yml
-  │   ├── node.gitlab-ci.yml
-  │   ├── python.gitlab-ci.yml
-  │   └── dotnet.gitlab-ci.yml
-  ├── monorepo/
-  │   ├── maven.gitlab-ci.yml
-  │   ├── node.gitlab-ci.yml
-  │   ├── python.gitlab-ci.yml
-  │   ├── dotnet.gitlab-ci.yml
-  │   └── helm/
-  │       ├── Chart.yaml
-  │       └── values.yaml
-  └── delivery/
-      ├── .gitlab-ci.yml
-      └── helm/
-          ├── Chart.yaml
-          └── values.yaml
-
-# Hide acceess token in URL
-# Deployment cluster - add gitlab variables for cluster access token
-# What happen if the process of initializing a repo fails,
-  but the repo has already bean created?
+Notes:
+- All .j2 files are Jinja2 templates using custom delimiters
+- Custom delimiters: {% variable %} for variables, {# if condition #} for control structures
+- Helm templates ({{ .Values.x }}) remain unchanged
+- Stack-specific files are organized in stacks/{stack}/ directory
+- Project-type specific templates are in project-types/{project_type}/ directory

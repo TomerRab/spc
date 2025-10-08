@@ -3,6 +3,7 @@ from typing import Dict, Optional
 
 from .stack_config_manager import StackConfigManager
 from .template_renderer import TemplateRenderer
+from .helm_generator import HelmGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ class TemplateProcessor:
         # Initialize components
         self.stack_manager = StackConfigManager()
         self.renderer = TemplateRenderer(s3_bucket=s3_bucket, s3_region=s3_region)
+        self.helm_generator = HelmGenerator(self.renderer)
 
     async def get_project_files(
         self, project_type: str, repo_name: str, stack: Optional[str] = None
@@ -40,7 +42,7 @@ class TemplateProcessor:
         if stack and project_type != "delivery":
             files.update(await self._generate_stack_files(project_type, stack, repo_name))
         if self.stack_manager.requires_helm(project_type):
-            files.update(await self._generate_helm_files(project_type, repo_name))
+            files.update(await self.helm_generator.generate_helm_files(project_type, repo_name))
 
     async def _generate_ci_files(self, project_type: str, repo_name: str, stack_name: str) -> Dict[str, str]:
         """Generate CI/CD pipeline files."""
@@ -53,14 +55,14 @@ class TemplateProcessor:
     async def _generate_delivery_ci(self, repo_name: str) -> str:
         """Generate CI file for delivery projects."""
         return await self.renderer.process_template(
-            "delivery/.gitlab-ci.yml",
+            "templates/project-types/delivery/gitlab-ci.yml.j2",
             {"repo_name": repo_name, "cluster_domain": "example.com"},
         )
 
     async def _generate_standard_ci(self, project_type: str, repo_name: str, stack_name: str) -> str:
         """Generate CI file for standard projects."""
         return await self.renderer.process_template(
-            f"{project_type}/{stack_name}.gitlab-ci.yml",
+            f"templates/project-types/{project_type}/{stack_name}.gitlab-ci.yml.j2",
             {"repo_name": repo_name, "stack": stack_name},
         )
 
@@ -75,7 +77,7 @@ class TemplateProcessor:
         """Add stack configuration file if available."""
         config_file = self.stack_manager.get_config_file(stack)
         if config_file:
-            content = await self.renderer.get_static_template(f"common/config/{config_file}")
+            content = await self.renderer.get_static_template(f"templates/stacks/{stack}/{config_file}")
             files[config_file] = content
 
     async def _add_docker_files(self, files: Dict[str, str], project_type: str, stack: str) -> None:
@@ -88,13 +90,13 @@ class TemplateProcessor:
     async def _add_dockerfile(self, files: Dict[str, str], stack: str) -> None:
         """Add Dockerfile for the stack."""
         dockerfile_content = await self.renderer.get_static_template(
-            f"common/build/Dockerfiles/{stack}.Dockerfile"
+            f"templates/docker/{stack}.Dockerfile"
         )
         files["build/Dockerfile"] = dockerfile_content
 
     async def _add_dockerignore(self, files: Dict[str, str]) -> None:
         """Add .dockerignore file."""
-        dockerignore_content = await self.renderer.get_static_template("common/build/.dockerignore")
+        dockerignore_content = await self.renderer.get_static_template("templates/docker/.dockerignore")
         files["build/.dockerignore"] = dockerignore_content
 
     async def _generate_gitignore(self, project_type: str, stack_name: str) -> Dict[str, str]:
@@ -106,107 +108,14 @@ class TemplateProcessor:
     def _get_gitignore_path(self, project_type: str, stack_name: str) -> str:
         """Get the appropriate gitignore template path."""
         if project_type == "delivery":
-            return "delivery/.gitignore"
+            return "templates/project-types/delivery/.gitignore"
         return self._get_stack_gitignore_path(stack_name)
 
     def _get_stack_gitignore_path(self, stack_name: str) -> str:
         """Get gitignore path for stack-specific projects."""
         if stack_name:
-            return f"common/gitignore/{stack_name}.gitignore"
-        return "common/gitignore/.gitignore"
-
-    async def _generate_helm_files(self, project_type: str, repo_name: str) -> Dict[str, str]:
-        """Generate Helm chart files for deployment projects."""
-        files = {}
-        await self._add_basic_helm_files(files, project_type, repo_name)
-        await self._add_helm_template_files(files, project_type, repo_name)
-        await self._add_helm_helper_files(files, project_type)
-        await self._add_helm_ignore_file(files, project_type)
-        await self._add_delivery_environments_if_needed(files, project_type, repo_name)
-        return files
-
-    async def _add_basic_helm_files(self, files: Dict[str, str], project_type: str, repo_name: str) -> None:
-        """Add basic Helm chart files."""
-        helm_files = ["Chart.yaml", "values.yaml", "values-dev.yaml", "values-staging.yaml", "values-prod.yaml"]
-        for helm_file in helm_files:
-            await self._add_single_helm_file(files, project_type, repo_name, helm_file)
-
-    async def _add_single_helm_file(self, files: Dict[str, str], project_type: str, repo_name: str, helm_file: str) -> None:
-        """Add a single Helm file to the files collection."""
-        content = await self.renderer.process_template(
-            f"{project_type}/helm/{helm_file}",
-            {"repo_name": repo_name},
-        )
-        files[f"helm/{helm_file}"] = content
-
-    async def _add_helm_template_files(self, files: Dict[str, str], project_type: str, repo_name: str) -> None:
-        """Add Helm template files that need variable substitution."""
-        template_files = ["deployment.yaml", "service.yaml", "ingress.yaml", "configmap.yaml", "serviceaccount.yaml", "hpa.yaml"]
-        for template_file in template_files:
-            await self._add_single_helm_template_file(files, project_type, repo_name, template_file)
-
-    async def _add_single_helm_template_file(self, files: Dict[str, str], project_type: str, repo_name: str, template_file: str) -> None:
-        """Add a single Helm template file."""
-        content = await self.renderer.process_template(
-            f"{project_type}/helm/templates/{template_file}",
-            {"repo_name": repo_name},
-        )
-        files[f"helm/templates/{template_file}"] = content
-
-    async def _add_helm_helper_files(self, files: Dict[str, str], project_type: str) -> None:
-        """Add Helm helper template files."""
-        helper_files = ["_helpers.tpl"]
-        for helper_file in helper_files:
-            content = await self.renderer.get_static_template(f"{project_type}/helm/templates/{helper_file}")
-            files[f"helm/templates/{helper_file}"] = content
-
-    async def _add_helm_ignore_file(self, files: Dict[str, str], project_type: str) -> None:
-        """Add .helmignore file."""
-        content = await self.renderer.get_static_template(f"{project_type}/helm/.helmignore")
-        files["helm/.helmignore"] = content
-
-    async def _add_delivery_environments_if_needed(self, files: Dict[str, str], project_type: str, repo_name: str) -> None:
-        """Add delivery environment configurations if needed."""
-        if project_type == "delivery":
-            files.update(await self._generate_delivery_environments(repo_name))
-
-    async def _generate_delivery_environments(self, repo_name: str) -> Dict[str, str]:
-        """Generate environment-specific files for delivery projects."""
-        files = {}
-        environments = ["dev", "staging", "prod"]
-        await self._add_environment_files(files, environments, repo_name)
-        await self._add_environments_readme(files, repo_name)
-        return files
-
-    async def _add_environment_files(self, files: Dict[str, str], environments: list, repo_name: str) -> None:
-        """Add environment-specific values and secrets files."""
-        for env in environments:
-            await self._add_environment_values(files, env, repo_name)
-            await self._add_environment_secrets(files, env, repo_name)
-
-    async def _add_environment_values(self, files: Dict[str, str], env: str, repo_name: str) -> None:
-        """Add environment values file."""
-        env_values = await self.renderer.process_template(
-            f"delivery/environments/{env}/values.yaml",
-            {"repo_name": repo_name, "cluster_domain": "example.com", "aws_account_id": "123456789012"},
-        )
-        files[f"environments/{env}/values.yaml"] = env_values
-
-    async def _add_environment_secrets(self, files: Dict[str, str], env: str, repo_name: str) -> None:
-        """Add environment secrets template file."""
-        env_secrets = await self.renderer.process_template(
-            f"delivery/environments/{env}/secrets.yaml",
-            {"repo_name": repo_name},
-        )
-        files[f"environments/{env}/secrets.yaml"] = env_secrets
-
-    async def _add_environments_readme(self, files: Dict[str, str], repo_name: str) -> None:
-        """Add environments README file."""
-        env_readme = await self.renderer.process_template(
-            "delivery/environments/README.md",
-            {"repo_name": repo_name, "cluster_domain": "example.com"},
-        )
-        files["environments/README.md"] = env_readme
+            return f"templates/stacks/{stack_name}/.gitignore"
+        return "templates/common/.gitignore"
 
     async def _generate_readme(self, project_type: str, repo_name: str, stack_name: str) -> Dict[str, str]:
         """Generate README file."""
@@ -219,13 +128,13 @@ class TemplateProcessor:
     async def _generate_delivery_readme(self, repo_name: str) -> str:
         """Generate README for delivery projects."""
         return await self.renderer.process_template(
-            "delivery/README.md",
+            "templates/project-types/delivery/README.md",
             {"repo_name": repo_name, "cluster_domain": "example.com"},
         )
 
     async def _generate_standard_readme(self, repo_name: str, stack_name: str, project_type: str) -> str:
         """Generate README for standard projects."""
         return await self.renderer.process_template(
-            "common/README.md.j2",
+            "templates/common/README.md.j2",
             {"repo_name": repo_name, "stack": stack_name, "project_type": project_type},
         )

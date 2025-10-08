@@ -7,5 +7,3 @@ export class ProjectsService {
     return gitlabApi.createProject(projectData as CreateProjectRequest, credentials);
   }
 }
-
-export const projectsService = new ProjectsService();
