@@ -12,14 +12,14 @@ class TestVariableManager:
     def test_should_create_cluster_variables_true_cases(self):
         """Test cases where cluster variables should be created."""
         assert self.manager.should_create_cluster_variables("delivery", {"cluster1": {}}) is True
-        assert self.manager.should_create_cluster_variables("monorepo", {"cluster1": {}}) is True
+        assert self.manager.should_create_cluster_variables("standalone-microservice", {"cluster1": {}}) is True
         assert self.manager.should_create_cluster_variables("other", {"cluster1": {}}) is True
 
     def test_should_create_cluster_variables_false_cases(self):
         """Test cases where cluster variables should not be created."""
         assert self.manager.should_create_cluster_variables("delivery", {}) is False
         assert self.manager.should_create_cluster_variables("delivery", None) is False
-        assert self.manager.should_create_cluster_variables("monorepo", {}) is False
+        assert self.manager.should_create_cluster_variables("standalone-microservice", {}) is False
 
     def test_create_cluster_variables(self):
         """Test creating cluster variables."""

@@ -27,12 +27,15 @@ class MicroserviceRepositoryManager:
 
     async def _generate_microservice_files(self, repo_request: RepoRequest) -> Dict[str, str]:
         """Generate microservice template files."""
-        logger.info("Generating microservice template files...")
+        # Use the actual project type from the request instead of hardcoding "microservice"
+        project_type = repo_request.projectType if repo_request.projectType in ["microservice", "standalone-microservice"] else "microservice"
+        logger.info(f"Generating {project_type} template files...")
+
         # Extract environment keys from openshiftServers
         environments = list(repo_request.openshiftServers.keys()) if repo_request.openshiftServers else None
 
-        return await self.template_processor.get_project_files(
-            project_type="microservice",
+        return await self.template_processor.w(
+            project_type=project_type,
             repo_name=repo_request.sanitized_name,
             stack=repo_request.stack,
             environments=environments

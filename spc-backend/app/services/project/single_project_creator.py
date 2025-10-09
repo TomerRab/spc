@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class SingleProjectCreator:
-    """Handles creation of single repository projects (library, monorepo, delivery)."""
+    """Handles creation of single repository projects (library, standalone-microservice, delivery)."""
     
     def __init__(self, gitlab_service, template_processor) -> None:
         self.gitlab_service = gitlab_service

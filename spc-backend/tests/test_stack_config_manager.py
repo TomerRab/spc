@@ -38,14 +38,14 @@ class TestStackConfigManager:
     def test_requires_docker_valid_combinations(self):
         """Test Docker requirements for different project type and stack combinations."""
         assert self.manager.requires_docker("microservice", "python") is True
-        assert self.manager.requires_docker("monorepo", "node") is True
+        assert self.manager.requires_docker("standalone-microservice", "node") is True
         assert self.manager.requires_docker("library", "java") is False  # libraries don't need Docker
         assert self.manager.requires_docker("microservice", "") is False  # no stack
         assert self.manager.requires_docker("microservice", None) is False  # no stack
 
     def test_requires_helm_valid_project_types(self):
         """Test Helm requirements for different project types."""
-        assert self.manager.requires_helm("monorepo") is True
+        assert self.manager.requires_helm("standalone-microservice") is True
         assert self.manager.requires_helm("delivery") is True
         assert self.manager.requires_helm("microservice") is False
         assert self.manager.requires_helm("library") is False

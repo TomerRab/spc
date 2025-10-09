@@ -113,8 +113,8 @@ class RepoRequest(BaseModel):
     def _validate_project_type(self):
         """Validate project type selection."""
         if not self.projectType or (isinstance(self.projectType, str) and self.projectType.strip() == ""):
-            raise ValueError("Please select a project type (library, microservice, monorepo, etc.).")
-        valid_project_types = ["library", "microservice", "standalone-microservice", "monorepo", "delivery"]
+            raise ValueError("Please select a project type (library, microservice, standalone microservice, etc.).")
+        valid_project_types = ["library", "microservice", "standalone-microservice", "delivery"]
         if self.projectType not in valid_project_types:
             raise ValueError(f"Invalid project type '{self.projectType}'. Please select from: {', '.join(valid_project_types)}.")
 
@@ -138,7 +138,7 @@ class RepoRequest(BaseModel):
 
     def _validate_deployment_configuration(self):
         """Validate deployment configuration for projects that require it."""
-        if self.projectType in ["monorepo", "delivery"]:
+        if self.projectType in ["standalone-microservice", "delivery"]:
             self._validate_deployment_servers_presence()
             self._validate_deployment_server_configs()
 

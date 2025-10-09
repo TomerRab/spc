@@ -21,10 +21,9 @@ PROJECT_CONSTANTS = {
     'MIN_NAME_LENGTH': 2,
     'MAX_NAME_LENGTH': 100,
     'VALID_PROJECT_TYPES': [
-        'library', 
-        'microservice', 
-        'standalone-microservice', 
-        'monorepo', 
+        'library',
+        'microservice',
+        'standalone-microservice',
         'delivery'
     ],
     'VALID_STACKS': [
@@ -71,9 +70,8 @@ TEMPLATE_CONSTANTS = {
     'SUPPORTED_EXTENSIONS': ['.j2', '.jinja2'],
     'PROJECT_TYPES': {
         'MICROSERVICE': 'microservice',
-        'DELIVERY': 'delivery', 
+        'DELIVERY': 'delivery',
         'LIBRARY': 'library',
-        'MONOREPO': 'monorepo',
         'STANDALONE_MICROSERVICE': 'standalone-microservice'
     }
 }

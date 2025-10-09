@@ -51,7 +51,7 @@
 **Before:**
 ```
 "ValidationError: Field 'groupId' is required"
-"Invalid input: projectType must be one of ['library', 'microservice', 'monorepo']"
+"Invalid input: projectType must be one of ['library', 'microservice', 'standalone-microservice', 'delivery']"
 ```
 
 **After:**
@@ -144,7 +144,7 @@ spc-backend/templates/
 ├── delivery/
 ├── library/
 ├── microservice/
-├── monorepo/
+├── standalone-microservice/
 └── README.md
 ```
 

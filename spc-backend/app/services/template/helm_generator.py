@@ -24,7 +24,7 @@ class HelmGenerator:
         """Generate Helm chart files for a project type.
 
         Args:
-            project_type: Type of project (delivery, monorepo)
+            project_type: Type of project (delivery, standalone-microservice)
             repo_name: Name of the repository
             environments: List of environment keys (e.g., ['a', 'b', 'c'])
 

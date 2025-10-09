@@ -53,7 +53,6 @@ SPC streamlines the process of creating new GitLab projects by automatically gen
 - **Library**: Standard code libraries with basic CI/CD
 - **Microservice**: Full-stack microservices with optional separate delivery repositories
 - **Standalone Microservice**: Single repository with both application code and deployment configs
-- **Monorepo**: Multi-service repositories with shared Helm charts
 - **Delivery**: Standalone deployment configuration repositories
 
 ### Supported Tech Stacks
@@ -193,7 +192,7 @@ templates/
 │   │   └── dotnet.gitlab-ci.yml.j2
 │   ├── microservice/     # Microservice CI/CD templates
 │   │   └── (same structure as library)
-│   └── monorepo/         # Monorepo templates with Helm charts
+│   └── standalone-microservice/  # Standalone microservice templates with Helm charts
 │       ├── helm/
 │       └── (CI files for each stack)
 └── stacks/               # Stack-specific configuration files

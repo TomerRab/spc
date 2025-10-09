@@ -52,4 +52,4 @@ class StackConfigManager:
 
     def requires_helm(self, project_type: str) -> bool:
         """Check if project type requires Helm charts."""
-        return project_type in ["monorepo", "delivery"]
+        return project_type in ["standalone-microservice", "delivery"]

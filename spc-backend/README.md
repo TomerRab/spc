@@ -33,7 +33,6 @@ FastAPI-based REST API service that orchestrates GitLab repository creation with
 - **Library**: Basic library projects with CI/CD
 - **Microservice**: Full microservice with optional separate delivery repo
 - **Standalone Microservice**: Single repo with app + deployment configs
-- **Monorepo**: Multi-service repositories with shared Helm charts
 - **Delivery**: Standalone deployment configuration repositories
 
 ### Error Handling
@@ -363,7 +362,7 @@ Creates a new GitLab repository with templates.
 **Request Body Schema**:
 - `project_name` (string, required): Project name
 - `groupId` (integer, required): GitLab group ID
-- `project_type` (string, required): One of: `library`, `microservice`, `standalone_microservice`, `monorepo`, `delivery`
+- `project_type` (string, required): One of: `library`, `microservice`, `standalone-microservice`, `delivery`
 - `stack` (string, required for most types): One of: `spring`, `maven`, `nodejs`, `react`, `python`, `dotnet`
 - `defaultBranch` (string, optional): Default branch name (default: "main")
 - `visibility` (string, optional): Repository visibility (default: "private")
@@ -427,7 +426,7 @@ s3://solid-project-creator/templates/
 │   │   ├── dotnet.gitlab-ci.yml.j2
 │   │   ├── maven.gitlab-ci.yml.j2
 │   │   └── node.gitlab-ci.yml.j2
-│   └── monorepo/               # Monorepo templates with Helm charts
+│   └── standalone-microservice/  # Standalone microservice templates with Helm charts
 │       ├── python.gitlab-ci.yml.j2
 │       ├── dotnet.gitlab-ci.yml.j2
 │       ├── maven.gitlab-ci.yml.j2

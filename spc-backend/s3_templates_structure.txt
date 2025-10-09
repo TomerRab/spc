@@ -26,7 +26,7 @@ s3://solid-project-creator/templates/
 │   │   ├── dotnet.gitlab-ci.yml.j2
 │   │   ├── maven.gitlab-ci.yml.j2
 │   │   └── node.gitlab-ci.yml.j2
-│   └── monorepo/
+│   └── standalone-microservice/
 │       ├── python.gitlab-ci.yml.j2
 │       ├── dotnet.gitlab-ci.yml.j2
 │       ├── maven.gitlab-ci.yml.j2
