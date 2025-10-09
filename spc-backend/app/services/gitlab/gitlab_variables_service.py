@@ -80,7 +80,14 @@ class GitLabVariablesService:
         if response.status_code == 201:
             logger.info(f"✅ Set environment variable {key}='{value}' for environment '{environment}'")
         elif response.status_code == 400:
-            await self._update_environment_variable(token, project_id, key, value, environment)
+            # 400 could mean variable already exists OR validation error
+            response_text = response.text.lower()
+            if "already exists" in response_text or "has already been taken" in response_text:
+                logger.info(f"Variable {key} already exists for environment '{environment}', updating...")
+                await self._update_environment_variable(token, project_id, key, value, environment)
+            else:
+                logger.error(f"❌ Validation error for variable {key}: {response.text}")
+                raise GitLabError(f"Invalid variable configuration for '{key}': {response.text}", response.status_code, "set_environment_variable")
         else:
             logger.error(f"❌ Failed to set environment variable {key} for environment {environment}: {response.status_code} - {response.text}")
             raise GitLabError(f"Failed to set environment variable '{key}' for environment '{environment}'. Please try again.", response.status_code, "set_environment_variable")
@@ -101,10 +108,17 @@ class GitLabVariablesService:
         }
 
     async def _send_update_request(self, token: str, project_id: int, key: str, payload: dict) -> httpx.Response:
-        """Send update request to GitLab."""
+        """Send update request to GitLab.
+
+        Note: When updating environment-scoped variables, we need to filter by environment_scope
+        to ensure we update the correct variable instance.
+        """
+        # Extract environment scope from payload to add as filter
+        environment_scope = payload.get('environment_scope', '*')
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             return await client.put(
-                f"{self.base_url}/projects/{project_id}/variables/{key}",
+                f"{self.base_url}/projects/{project_id}/variables/{key}?filter[environment_scope]={environment_scope}",
                 headers=self._get_headers(token),
                 json=payload,
             )

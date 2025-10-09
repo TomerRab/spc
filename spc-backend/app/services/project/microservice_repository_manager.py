@@ -34,7 +34,7 @@ class MicroserviceRepositoryManager:
         # Extract environment keys from openshiftServers
         environments = list(repo_request.openshiftServers.keys()) if repo_request.openshiftServers else None
 
-        return await self.template_processor.w(
+        return await self.template_processor.get_project_files(
             project_type=project_type,
             repo_name=repo_request.sanitized_name,
             stack=repo_request.stack,
@@ -44,7 +44,7 @@ class MicroserviceRepositoryManager:
     async def _create_repository(self, token: str, repo_request: RepoRequest) -> Tuple[str, int]:
         """Create GitLab repository."""
         logger.info("Creating microservice repository...")
-        return await self.gitlab_service.create_repository(token, repo_request.dict())
+        return await self.gitlab_service.create_repository(token, repo_request.model_dump())
 
     async def _add_files_to_repository(self, token: str, repo_id: int, files: Dict[str, str], branch: str = None) -> None:
         """Add template files to repository."""
@@ -86,7 +86,7 @@ class MicroserviceRepositoryManager:
 
     def _prepare_delivery_repo_data(self, repo_request: RepoRequest) -> Dict:
         """Prepare delivery repository data."""
-        delivery_repo_data = repo_request.dict()
+        delivery_repo_data = repo_request.model_dump()
         delivery_repo_data["name"] = f"{repo_request.name}-delivery"
         delivery_repo_data["project_name"] = f"{repo_request.name}-delivery"
 

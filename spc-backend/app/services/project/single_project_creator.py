@@ -62,41 +62,19 @@ class SingleProjectCreator:
 
     async def _create_and_initialize_repository(self, token: str, repo_request: RepoRequest, files: Dict[str, str]) -> tuple:
         """Create repository and initialize with files."""
-        repo_url, project_id = await self.gitlab_service.create_repository(token, repo_request.dict())
+        repo_url, project_id = await self.gitlab_service.create_repository(token, repo_request.model_dump())
         await self.gitlab_service.add_files(token, project_id, files, branch=repo_request.defaultBranch)
         return repo_url, project_id
 
     async def _setup_project_variables(self, token: str, project_id: int, repo_request: RepoRequest) -> List[str]:
         """Set up all project variables."""
-        variables_created = []
-        if self._should_create_cluster_variables(repo_request):
-            cluster_vars = await self._create_cluster_variables(token, project_id, repo_request)
-            variables_created.extend(cluster_vars)
-        if repo_request.openshiftServers:
-            openshift_vars = await self._create_openshift_variables(token, project_id, repo_request)
-            variables_created.extend(openshift_vars)
-        return variables_created
+        if not repo_request.openshiftServers:
+            return []
 
-    def _should_create_cluster_variables(self, repo_request: RepoRequest) -> bool:
-        """Check if cluster variables should be created."""
-        return self.variable_manager.should_create_cluster_variables(
-            repo_request.projectType, repo_request.clusters
-        )
-
-    async def _create_cluster_variables(self, token: str, project_id: int, repo_request: RepoRequest) -> List[str]:
-        """Create and set cluster variables."""
-        cluster_variables = self.variable_manager.create_cluster_variables(repo_request.clusters)
-        await self.gitlab_service.set_project_variables(token, project_id, cluster_variables)
-        return list(cluster_variables.keys())
-
-    async def _create_openshift_variables(self, token: str, project_id: int, repo_request: RepoRequest) -> List[str]:
-        """Create and set OpenShift variables."""
-        cluster_variables = self.variable_manager.create_deployment_variables(repo_request.openshiftServers)
-        await self.gitlab_service.set_project_variables(token, project_id, cluster_variables)
-        env_variables = await self.variable_manager.set_environment_variables(
+        # Create environment-scoped OpenShift variables
+        return await self.variable_manager.create_openshift_variables(
             self.gitlab_service, token, project_id, repo_request.openshiftServers
         )
-        return list(cluster_variables.keys()) + env_variables
 
     def _build_success_response(self, repo_request: RepoRequest, repo_url: str, project_id: int, files: Dict[str, str], variables_created: List[str]) -> Dict:
         """Build the success response for project creation."""

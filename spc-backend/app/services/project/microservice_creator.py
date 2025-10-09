@@ -128,49 +128,19 @@ class MicroserviceCreator:
             repo_request, microservice_url, microservice_id, files, variables_created
         )
 
-    def _handle_standalone_failure(self, error: Exception, project_name: str) -> None:
-        """Handle standalone microservice creation failure."""
-        logger.error(f"Failed to create standalone microservice: {str(error)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create standalone microservice '{project_name}': {str(error)}"
-        )
-
     async def _setup_delivery_variables(self, token: str, delivery_id: int, repo_request: RepoRequest) -> list[str]:
         """Set up CI/CD variables for delivery repository."""
-        if not repo_request.openshiftServers:
-            return []
-        return await self._create_and_set_variables(token, delivery_id, repo_request)
-
-    async def _create_and_set_variables(self, token: str, delivery_id: int, repo_request: RepoRequest) -> list[str]:
-        """Create and set both cluster and environment variables."""
-        cluster_variables = self._create_cluster_variables(repo_request)
-        await self._set_cluster_variables(token, delivery_id, cluster_variables)
-        env_variables = await self._set_environment_variables(token, delivery_id, repo_request)
-        return list(cluster_variables.keys()) + env_variables
-
-    def _create_cluster_variables(self, repo_request: RepoRequest) -> Dict[str, str]:
-        """Create cluster variables."""
-        return self.variable_manager.create_deployment_variables(repo_request.openshiftServers)
-
-    async def _set_cluster_variables(self, token: str, delivery_id: int, cluster_variables: Dict[str, str]) -> None:
-        """Set cluster variables in GitLab."""
-        await self.gitlab_service.set_project_variables(token, delivery_id, cluster_variables)
-
-    async def _set_environment_variables(self, token: str, delivery_id: int, repo_request: RepoRequest) -> list[str]:
-        """Set environment-specific variables."""
-        return await self.variable_manager.set_environment_variables(
-            self.gitlab_service, token, delivery_id, repo_request.openshiftServers
-        )
+        return await self._setup_openshift_variables(token, delivery_id, repo_request)
 
     async def _setup_deployment_variables(self, token: str, repo_id: int, repo_request: RepoRequest) -> list[str]:
         """Set up CI/CD variables for standalone microservice."""
+        return await self._setup_openshift_variables(token, repo_id, repo_request)
+
+    async def _setup_openshift_variables(self, token: str, project_id: int, repo_request: RepoRequest) -> list[str]:
+        """Set up OpenShift CI/CD variables with environment scope."""
         if not repo_request.openshiftServers:
             return []
-        return await self._create_and_set_cluster_variables(token, repo_id, repo_request)
 
-    async def _create_and_set_cluster_variables(self, token: str, repo_id: int, repo_request: RepoRequest) -> list[str]:
-        """Create and set cluster variables for standalone deployment."""
-        cluster_variables = self._create_cluster_variables(repo_request)
-        await self._set_cluster_variables(token, repo_id, cluster_variables)
-        return list(cluster_variables.keys())
+        return await self.variable_manager.create_openshift_variables(
+            self.gitlab_service, token, project_id, repo_request.openshiftServers
+        )
