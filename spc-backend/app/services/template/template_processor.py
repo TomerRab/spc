@@ -11,20 +11,21 @@ logger = logging.getLogger(__name__)
 class TemplateProcessor:
     """Main orchestrator for generating project files from templates."""
     
-    def __init__(self, s3_bucket: Optional[str] = None, s3_region: Optional[str] = None) -> None:
+    def __init__(self) -> None:
         # Initialize components
         self.stack_manager = StackConfigManager()
-        self.renderer = TemplateRenderer(s3_bucket=s3_bucket, s3_region=s3_region)
+        self.renderer = TemplateRenderer()
         self.helm_generator = HelmGenerator(self.renderer)
 
     async def get_project_files(
-        self, project_type: str, repo_name: str, stack: Optional[str] = None
+        self, project_type: str, repo_name: str, stack: Optional[str] = None,
+        environments: Optional[list] = None
     ) -> Dict[str, str]:
         """Generate all project files for a given project type and stack."""
         files = {}
         stack_name = self._get_stack_name(stack)
         await self._add_core_files(files, project_type, repo_name, stack_name)
-        await self._add_optional_files(files, project_type, repo_name, stack)
+        await self._add_optional_files(files, project_type, repo_name, stack, environments)
         return files
 
     def _get_stack_name(self, stack: Optional[str]) -> str:
@@ -37,12 +38,12 @@ class TemplateProcessor:
         files.update(await self._generate_gitignore(project_type, stack_name))
         files.update(await self._generate_readme(project_type, repo_name, stack_name))
 
-    async def _add_optional_files(self, files: Dict[str, str], project_type: str, repo_name: str, stack: Optional[str]) -> None:
+    async def _add_optional_files(self, files: Dict[str, str], project_type: str, repo_name: str, stack: Optional[str], environments: Optional[list] = None) -> None:
         """Add optional files based on project configuration."""
         if stack and project_type != "delivery":
             files.update(await self._generate_stack_files(project_type, stack, repo_name))
         if self.stack_manager.requires_helm(project_type):
-            files.update(await self.helm_generator.generate_helm_files(project_type, repo_name))
+            files.update(await self.helm_generator.generate_helm_files(project_type, repo_name, environments))
 
     async def _generate_ci_files(self, project_type: str, repo_name: str, stack_name: str) -> Dict[str, str]:
         """Generate CI/CD pipeline files."""

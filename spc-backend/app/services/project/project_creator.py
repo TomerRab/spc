@@ -19,9 +19,7 @@ class ProjectCreator:
     
     def __init__(self) -> None:
         self.gitlab_service = GitLabService()
-        self.template_processor = TemplateProcessor(
-            settings.s3_bucket, settings.s3_region
-        )
+        self.template_processor = TemplateProcessor()
         self.single_creator = SingleProjectCreator(self.gitlab_service, self.template_processor)
         self.microservice_creator = MicroserviceCreator(self.gitlab_service, self.template_processor)
 

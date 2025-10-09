@@ -50,10 +50,14 @@ class SingleProjectCreator:
 
     async def _generate_project_files(self, repo_request: RepoRequest) -> Dict[str, str]:
         """Generate template files for the project."""
+        # Extract environment keys from openshiftServers
+        environments = list(repo_request.openshiftServers.keys()) if repo_request.openshiftServers else None
+
         return await self.template_processor.get_project_files(
             project_type=repo_request.projectType,
             repo_name=repo_request.sanitized_name,
             stack=repo_request.stack,
+            environments=environments
         )
 
     async def _create_and_initialize_repository(self, token: str, repo_request: RepoRequest, files: Dict[str, str]) -> tuple:

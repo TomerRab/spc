@@ -28,10 +28,14 @@ class MicroserviceRepositoryManager:
     async def _generate_microservice_files(self, repo_request: RepoRequest) -> Dict[str, str]:
         """Generate microservice template files."""
         logger.info("Generating microservice template files...")
+        # Extract environment keys from openshiftServers
+        environments = list(repo_request.openshiftServers.keys()) if repo_request.openshiftServers else None
+
         return await self.template_processor.get_project_files(
             project_type="microservice",
             repo_name=repo_request.sanitized_name,
             stack=repo_request.stack,
+            environments=environments
         )
 
     async def _create_repository(self, token: str, repo_request: RepoRequest) -> Tuple[str, int]:
@@ -66,10 +70,15 @@ class MicroserviceRepositoryManager:
     async def _generate_delivery_files(self, repo_request: RepoRequest) -> Dict[str, str]:
         """Generate delivery template files."""
         logger.info("Generating delivery template files...")
+        # Extract environment keys from deliveryServers
+        delivery_servers = repo_request.deliveryConfig.get('deliveryServers', {}) if repo_request.deliveryConfig else {}
+        environments = list(delivery_servers.keys()) if delivery_servers else None
+
         return await self.template_processor.get_project_files(
             project_type="delivery",
             repo_name=repo_request.sanitized_name,
             stack=None,
+            environments=environments
         )
 
     def _prepare_delivery_repo_data(self, repo_request: RepoRequest) -> Dict:

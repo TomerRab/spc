@@ -15,9 +15,15 @@ logger = logging.getLogger(__name__)
 class S3TemplateLoader(BaseLoader):
     """Custom Jinja2 loader that fetches templates from S3."""
 
-    def __init__(self, s3_bucket: str, s3_region: str):
-        self.s3_bucket = s3_bucket
-        self.s3_client = boto3.client('s3', region_name=s3_region)
+    def __init__(self):
+        self.s3_bucket = settings.s3_bucket
+        self.s3_client = boto3.client(
+            's3',
+            region_name=settings.s3_region,
+            endpoint_url=settings.s3_endpoint_url,
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key
+        )
 
     def get_source(self, environment, template):
         """Load template from S3."""
@@ -56,15 +62,14 @@ class S3TemplateLoader(BaseLoader):
 class TemplateRenderer:
     """Handles Jinja2 template processing and rendering from S3."""
 
-    def __init__(self, s3_bucket: Optional[str] = None, s3_region: Optional[str] = None) -> None:
-        self.s3_bucket = s3_bucket or settings.s3_bucket
-        self.s3_region = s3_region or settings.s3_region
+    def __init__(self) -> None:
+        self.s3_bucket = settings.s3_bucket
         self.error_handler = TemplateErrorHandler(self.s3_bucket)
         self.stack_manager = StackConfigManager()
 
         # Use S3 loader instead of FileSystemLoader
         self.jinja_env = Environment(
-            loader=S3TemplateLoader(self.s3_bucket, self.s3_region),
+            loader=S3TemplateLoader(),
             autoescape=select_autoescape(['html', 'xml']),
             # Security: Restrict access to dangerous builtins
             enable_async=False,
