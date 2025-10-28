@@ -4,6 +4,7 @@ from typing import Dict, List
 from fastapi import HTTPException
 
 from app.schemas.repo_models import RepoRequest
+from app.schemas.template_models import TemplateContext
 from app.schemas.response_models import create_project_response
 from app.utils.exceptions import TemplateNotFoundError, TemplateError
 from .variable_manager import VariableManager
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class SingleProjectCreator:
     """Handles creation of single repository projects (library, standalone-microservice, delivery)."""
-    
+
     def __init__(self, gitlab_service, template_processor) -> None:
         self.gitlab_service = gitlab_service
         self.template_processor = template_processor
@@ -53,12 +54,16 @@ class SingleProjectCreator:
         # Extract environment keys from openshiftServers
         environments = list(repo_request.openshiftServers.keys()) if repo_request.openshiftServers else None
 
-        return await self.template_processor.get_project_files(
+        # Build template context
+        context = TemplateContext(
             project_type=repo_request.projectType,
             repo_name=repo_request.sanitized_name,
             stack=repo_request.stack,
-            environments=environments
+            environments=environments,
+            delivery_url=None  # Single projects don't have separate delivery repos
         )
+
+        return await self.template_processor.get_project_files(context)
 
     async def _create_and_initialize_repository(self, token: str, repo_request: RepoRequest, files: Dict[str, str]) -> tuple:
         """Create repository and initialize with files."""

@@ -1,8 +1,9 @@
 """Repository management for microservice projects."""
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from app.schemas.repo_models import RepoRequest
+from app.schemas.template_models import TemplateContext
 from app.utils.exceptions import ProjectCreationError
 
 logger = logging.getLogger(__name__)
@@ -10,23 +11,44 @@ logger = logging.getLogger(__name__)
 
 class MicroserviceRepositoryManager:
     """Handles repository creation and file management for microservices."""
-    
+
     def __init__(self, gitlab_service, template_processor) -> None:
         self.gitlab_service = gitlab_service
         self.template_processor = template_processor
 
-    async def create_microservice_repository(self, token: str, repo_request: RepoRequest) -> Tuple[str, int, Dict[str, str]]:
-        """Create microservice repository with templates."""
+    async def create_microservice_repository(
+        self, token: str, repo_request: RepoRequest, delivery_url: Optional[str] = None
+    ) -> Tuple[str, int, Dict[str, str]]:
+        """Create microservice repository with templates.
+
+        Args:
+            token: GitLab access token
+            repo_request: Repository request configuration
+            delivery_url: URL of the associated delivery repository (if applicable)
+
+        Returns:
+            Tuple of (repository_url, repository_id, generated_files)
+        """
         try:
-            files = await self._generate_microservice_files(repo_request)
+            files = await self._generate_microservice_files(repo_request, delivery_url)
             url, repo_id = await self._create_repository(token, repo_request)
             await self._add_files_to_repository(token, repo_id, files, repo_request.defaultBranch)
             return url, repo_id, files
         except Exception as e:
             self._handle_microservice_creation_error(e, repo_request.name)
 
-    async def _generate_microservice_files(self, repo_request: RepoRequest) -> Dict[str, str]:
-        """Generate microservice template files."""
+    async def _generate_microservice_files(
+        self, repo_request: RepoRequest, delivery_url: Optional[str] = None
+    ) -> Dict[str, str]:
+        """Generate microservice template files.
+
+        Args:
+            repo_request: Repository request configuration
+            delivery_url: URL of the associated delivery repository (injected into templates)
+
+        Returns:
+            Dictionary mapping file paths to their rendered content
+        """
         # Use the actual project type from the request instead of hardcoding "microservice"
         project_type = repo_request.projectType if repo_request.projectType in ["microservice", "standalone-microservice"] else "microservice"
         logger.info(f"Generating {project_type} template files...")
@@ -34,12 +56,16 @@ class MicroserviceRepositoryManager:
         # Extract environment keys from openshiftServers
         environments = list(repo_request.openshiftServers.keys()) if repo_request.openshiftServers else None
 
-        return await self.template_processor.get_project_files(
+        # Build template context with all necessary variables
+        context = TemplateContext(
             project_type=project_type,
             repo_name=repo_request.sanitized_name,
             stack=repo_request.stack,
-            environments=environments
+            environments=environments,
+            delivery_url=delivery_url  # Inject delivery URL for CI template
         )
+
+        return await self.template_processor.get_project_files(context)
 
     async def _create_repository(self, token: str, repo_request: RepoRequest) -> Tuple[str, int]:
         """Create GitLab repository."""
@@ -77,12 +103,16 @@ class MicroserviceRepositoryManager:
         delivery_servers = repo_request.deliveryConfig.get('deliveryServers', {}) if repo_request.deliveryConfig else {}
         environments = list(delivery_servers.keys()) if delivery_servers else None
 
-        return await self.template_processor.get_project_files(
+        # Build template context for delivery repository
+        context = TemplateContext(
             project_type="delivery",
             repo_name=repo_request.sanitized_name,
             stack=None,
-            environments=environments
+            environments=environments,
+            delivery_url=None  # Delivery repos don't reference other delivery repos
         )
+
+        return await self.template_processor.get_project_files(context)
 
     def _prepare_delivery_repo_data(self, repo_request: RepoRequest) -> Dict:
         """Prepare delivery repository data."""

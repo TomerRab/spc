@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Optional
 
+from app.schemas.template_models import TemplateContext
 from .stack_config_manager import StackConfigManager
 from .template_renderer import TemplateRenderer
 from .helm_generator import HelmGenerator
@@ -10,47 +11,51 @@ logger = logging.getLogger(__name__)
 
 class TemplateProcessor:
     """Main orchestrator for generating project files from templates."""
-    
+
     def __init__(self) -> None:
         # Initialize components
         self.stack_manager = StackConfigManager()
         self.renderer = TemplateRenderer()
         self.helm_generator = HelmGenerator(self.renderer)
 
-    async def get_project_files(
-        self, project_type: str, repo_name: str, stack: Optional[str] = None,
-        environments: Optional[list] = None
-    ) -> Dict[str, str]:
-        """Generate all project files for a given project type and stack."""
+    async def get_project_files(self, context: TemplateContext) -> Dict[str, str]:
+        """Generate all project files for a given project type and stack.
+
+        Args:
+            context: TemplateContext containing all variables needed for rendering
+
+        Returns:
+            Dictionary mapping file paths to their rendered content
+        """
         files = {}
-        stack_name = self._get_stack_name(stack)
-        await self._add_core_files(files, project_type, repo_name, stack_name)
-        await self._add_optional_files(files, project_type, repo_name, stack, environments)
+        stack_name = self._get_stack_name(context.stack)
+        await self._add_core_files(files, context, stack_name)
+        await self._add_optional_files(files, context, stack_name)
         return files
 
     def _get_stack_name(self, stack: Optional[str]) -> str:
         """Get normalized stack name."""
         return stack if stack else ""
 
-    async def _add_core_files(self, files: Dict[str, str], project_type: str, repo_name: str, stack_name: str) -> None:
+    async def _add_core_files(self, files: Dict[str, str], context: TemplateContext, stack_name: str) -> None:
         """Add core required files to the project."""
-        files.update(await self._generate_ci_files(project_type, repo_name, stack_name))
-        files.update(await self._generate_gitignore(project_type, stack_name))
-        files.update(await self._generate_readme(project_type, repo_name, stack_name))
+        files.update(await self._generate_ci_files(context, stack_name))
+        files.update(await self._generate_gitignore(context.project_type, stack_name))
+        files.update(await self._generate_readme(context, stack_name))
 
-    async def _add_optional_files(self, files: Dict[str, str], project_type: str, repo_name: str, stack: Optional[str], environments: Optional[list] = None) -> None:
+    async def _add_optional_files(self, files: Dict[str, str], context: TemplateContext, stack_name: str) -> None:
         """Add optional files based on project configuration."""
-        if stack and project_type != "delivery":
-            files.update(await self._generate_stack_files(project_type, stack, repo_name))
-        if self.stack_manager.requires_helm(project_type):
-            files.update(await self.helm_generator.generate_helm_files(project_type, repo_name, environments))
+        if context.stack and context.project_type != "delivery":
+            files.update(await self._generate_stack_files(context.project_type, context.stack, context.repo_name))
+        if self.stack_manager.requires_helm(context.project_type):
+            files.update(await self.helm_generator.generate_helm_files(context.project_type, context.repo_name, context.environments))
 
-    async def _generate_ci_files(self, project_type: str, repo_name: str, stack_name: str) -> Dict[str, str]:
+    async def _generate_ci_files(self, context: TemplateContext, stack_name: str) -> Dict[str, str]:
         """Generate CI/CD pipeline files."""
-        if project_type == "delivery":
-            content = await self._generate_delivery_ci(repo_name)
+        if context.project_type == "delivery":
+            content = await self._generate_delivery_ci(context.repo_name)
         else:
-            content = await self._generate_standard_ci(project_type, repo_name, stack_name)
+            content = await self._generate_standard_ci(context, stack_name)
         return {".gitlab-ci.yml": content}
 
     async def _generate_delivery_ci(self, repo_name: str) -> str:
@@ -60,11 +65,25 @@ class TemplateProcessor:
             {"repo_name": repo_name, "cluster_domain": "example.com"},
         )
 
-    async def _generate_standard_ci(self, project_type: str, repo_name: str, stack_name: str) -> str:
-        """Generate CI file for standard projects."""
+    async def _generate_standard_ci(self, context: TemplateContext, stack_name: str) -> str:
+        """Generate CI file for standard projects.
+
+        Injects the delivery_url into the template context if available.
+        This allows microservice CI templates to reference their delivery repositories.
+        """
+        template_vars = {
+            "repo_name": context.repo_name,
+            "stack": stack_name,
+        }
+
+        # Add delivery_url if present (for microservices with separate delivery repos)
+        if context.delivery_url:
+            template_vars["delivery_url"] = context.delivery_url
+            logger.info(f"Injecting delivery_url into CI template: {context.delivery_url}")
+
         return await self.renderer.process_template(
-            f"templates/project-types/{project_type}/{stack_name}.gitlab-ci.yml.j2",
-            {"repo_name": repo_name, "stack": stack_name},
+            f"templates/project-types/{context.project_type}/{stack_name}.gitlab-ci.yml.j2",
+            template_vars,
         )
 
     async def _generate_stack_files(self, project_type: str, stack: str, repo_name: str) -> Dict[str, str]:
@@ -118,12 +137,12 @@ class TemplateProcessor:
             return f"templates/stacks/{stack_name}/.gitignore"
         return "templates/common/.gitignore"
 
-    async def _generate_readme(self, project_type: str, repo_name: str, stack_name: str) -> Dict[str, str]:
+    async def _generate_readme(self, context: TemplateContext, stack_name: str) -> Dict[str, str]:
         """Generate README file."""
-        if project_type == "delivery":
-            content = await self._generate_delivery_readme(repo_name)
+        if context.project_type == "delivery":
+            content = await self._generate_delivery_readme(context.repo_name)
         else:
-            content = await self._generate_standard_readme(repo_name, stack_name, project_type)
+            content = await self._generate_standard_readme(context.repo_name, stack_name, context.project_type)
         return {"README.md": content}
 
     async def _generate_delivery_readme(self, repo_name: str) -> str:

@@ -30,14 +30,23 @@ class MicroserviceCreator:
         self.response_builder = MicroserviceResponseBuilder()
 
     async def create_with_delivery(self, token: str, repo_request: RepoRequest) -> Dict:
-        """Create microservice with separate delivery repository."""
+        """Create microservice with separate delivery repository.
+
+        IMPORTANT: Creates delivery repo FIRST, then microservice repo with delivery URL.
+        This allows the microservice CI template to reference the delivery repo URL.
+        """
         created_repos = []
         microservice_data = None
         delivery_data = None
 
         try:
-            microservice_data = await self._create_microservice_part(token, repo_request, created_repos)
+            # STEP 1: Create delivery repo first to obtain its URL
             delivery_data = await self._create_delivery_part(token, repo_request, created_repos)
+            delivery_url = delivery_data[0]  # Extract URL from tuple (url, id, files)
+            logger.info(f"Delivery repo created at: {delivery_url}")
+
+            # STEP 2: Create microservice repo with delivery URL injected into templates
+            microservice_data = await self._create_microservice_part(token, repo_request, created_repos, delivery_url)
 
             # Variables are created after repos, so handle failure gracefully
             try:
@@ -54,10 +63,22 @@ class MicroserviceCreator:
             # Only rollback if repository creation failed, not variable creation
             await self._handle_creation_failure(token, created_repos, e, repo_request.name)
 
-    async def _create_microservice_part(self, token: str, repo_request: RepoRequest, created_repos: list) -> tuple:
-        """Create the microservice repository part."""
+    async def _create_microservice_part(
+        self, token: str, repo_request: RepoRequest, created_repos: list, delivery_url: str = None
+    ) -> tuple:
+        """Create the microservice repository part.
+
+        Args:
+            token: GitLab access token
+            repo_request: Repository request configuration
+            created_repos: List tracking created repositories for rollback
+            delivery_url: URL of the delivery repository (injected into CI templates)
+
+        Returns:
+            Tuple of (microservice_url, microservice_id, microservice_files)
+        """
         microservice_url, microservice_id, microservice_files = (
-            await self.repository_manager.create_microservice_repository(token, repo_request)
+            await self.repository_manager.create_microservice_repository(token, repo_request, delivery_url)
         )
         self._add_to_created_repos(created_repos, "microservice", repo_request.name, microservice_url, microservice_id)
         return microservice_url, microservice_id, microservice_files
